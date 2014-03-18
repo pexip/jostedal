@@ -51,7 +51,7 @@ class LongTermCredentialMechanism(CredentialMechanism):
     def update(self, msg):
         msg.add_attr(attributes.Nonce, self.nonce)
         msg.add_attr(attributes.Realm, self.realm)
-        msg.add_attr(attributes.MessageIntegrity, self.hmac_key)
+        msg.add_attr(attributes.MessageIntegrity, self.hmac_keys.values()[0])
 
     def __str__(self):
         return "realm={}".format(self.realm)

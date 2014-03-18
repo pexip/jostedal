@@ -36,13 +36,14 @@ try:
     software = config['software']
     realm = config['realm']
     users = config['users']
+    overrides = config.get('overrides') or {}
 except:
     logging.exception("Failed to load config from %s", config_file)
     exit(1)
 
 
 credential_mechanism = LongTermCredentialMechanism(realm, users)
-server = TurnUdpServer(reactor, interface, port, software, credential_mechanism)
+server = TurnUdpServer(reactor, interface, port, software, credential_mechanism, overrides)
 port = server.start()
 logging.info("Started %r", server)
 reactor.run()

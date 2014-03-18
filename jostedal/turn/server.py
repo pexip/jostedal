@@ -10,10 +10,11 @@ class TurnUdpServer(StunUdpServer):
     max_lifetime = 3600
     default_lifetime = 600
 
-    def __init__(self, reactor, interface, port, software, credential_mechanism):
+    def __init__(self, reactor, interface, port, software, credential_mechanism, overrides):
         StunUdpServer.__init__(self, reactor, interface, port, software)
         self._relays = {}
         self.credential_mechanism = credential_mechanism
+        self.overrides = overrides
 
         self._handlers.update({
             # Allocate handlers
@@ -100,7 +101,7 @@ class TurnUdpServer(StunUdpServer):
             response.add_attr(ReservationToken, token)
         response.add_attr(Lifetime, time_to_expiry)
         family = Address.aftof(self.transport.addressFamily)
-        host, port = addr
+        host, port = self.overrides.get('mapped_address', addr)
         response.add_attr(XorMappedAddress, family, port, host)
 
         self.respond(response, addr)
