@@ -11,7 +11,7 @@ class TurnUdpServer(StunUdpServer):
     default_lifetime = 600
 
     def __init__(self, reactor, interface, port, software, credential_mechanism, overrides):
-        StunUdpServer.__init__(self, reactor, interface, port, software)
+        StunUdpServer.__init__(self, reactor, interface, port, software, overrides)
         self._relays = {}
         self.credential_mechanism = credential_mechanism
         self.overrides = overrides
