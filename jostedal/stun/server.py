@@ -36,8 +36,9 @@ class StunUdpServer(StunUdpProtocol):
                 host, port = self.overrides.get('mapped_address', addr)
                 response.add_attr(attributes.XorMappedAddress, family, port, host)
                 response.add_attr(attributes.Software, self.software)
-                response.add_attr(attributes.Fingerprint)
-            self.respond(response, addr)
+        self.transport.write(response, addr)
+        logger.info("%s Sending response", self)
+        logger.debug(response.format())
 
     def _stun_binding_indication(self, msg, addr):
         pass
