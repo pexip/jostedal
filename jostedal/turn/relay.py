@@ -29,7 +29,7 @@ class Relay(DatagramProtocol):
         relay = cls(server, client_addr)
         port = server.reactor.listenUDP(port, relay, server.interface)
         family = Address.aftof(relay.transport.socket.family)
-        relay_ip, port = relay.transport.socket.getsockname()
+        relay_ip, port = relay.transport.socket.getsockname()[:2]
         relay.relay_addr = (family, port, relay_ip)
         logger.info("%s Allocated", relay)
         return relay
