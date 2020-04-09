@@ -1,4 +1,4 @@
-from jostedal.stun.client import StunUdpClient, TransactionError
+from jostedal.stun.client import StunTcpClient, StunUdpClient, TransactionError
 from jostedal import stun, turn
 from jostedal.stun.agent import Message
 from jostedal.turn import attributes
@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TurnUdpClient(StunUdpClient):
+class TurnClientMixin(object):
     class UnAllocated():
         allocate = None
 
@@ -32,8 +32,7 @@ class TurnUdpClient(StunUdpClient):
 
     class Expired(): pass
 
-    def __init__(self, reactor):
-        StunUdpClient.__init__(self, reactor)
+    def __init__(self):
         self.turn_server_domain_name = None
         self.allocation = None
 
@@ -53,7 +52,7 @@ class TurnUdpClient(StunUdpClient):
                 self._stun_data_indication,
             })
 
-    def allocate(self, addr, transport=turn.TRANSPORT_UDP, time_to_expiry=None,
+    def allocate(self, addr=None, transport=turn.TRANSPORT_UDP, time_to_expiry=None,
         dont_fragment=False, even_port=None, reservation_token=None):
         """
         :param even_port: None | 0 | 1 (1==reserve next highest port number)
@@ -116,7 +115,7 @@ class TurnUdpClient(StunUdpClient):
                 transaction.fail(TransactionError(error_code))
 
     def _stun_refresh_success(self, msg, addr):
-        self._stun_unhandeled(msg, addr)
+        self._stun_unhandled(msg, addr)
 
     def _stun_refresh_error(self, msg, addr):
         # If time_to_expiry == 0 and error 437 (Allocation Mismatch)
@@ -124,4 +123,16 @@ class TurnUdpClient(StunUdpClient):
         self.errback(msg.format())
 
     def _stun_data_indication(self, msg, addr):
-        self._stun_unhandeled(msg, addr)
+        self._stun_unhandled(msg, addr)
+
+
+class TurnTcpClient(StunTcpClient, TurnClientMixin):
+    def __init__(self, reactor, software, host, port):
+        StunTcpClient.__init__(self, reactor, software, host, port)
+        TurnClientMixin.__init__(self)
+
+
+class TurnUdpClient(StunUdpClient, TurnClientMixin):
+    def __init__(self, reactor, software):
+        StunUdpClient.__init__(self, reactor, software)
+        TurnClientMixin.__init__(self)
