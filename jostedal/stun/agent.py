@@ -1,5 +1,5 @@
 import logging
-from twisted.internet.protocol import DatagramProtocol
+from twisted.internet.protocol import DatagramProtocol, Protocol
 from jostedal import stun
 import struct
 import os
@@ -9,22 +9,8 @@ import socket
 logger = logging.getLogger(__name__)
 
 
-class StunUdpProtocol(DatagramProtocol):
-    def __init__(self, reactor, interface, port, software, RTO=3., Rc=7, Rm=16):
-        """
-        :param port: UDP port to bind to
-        :param RTO: Retransmission TimeOut (initial value)
-        :param Rc: Retransmission Count (maximum number of request to send)
-        :param Rm: Retransmission Multiplier (timeout = Rm * RTO)
-        """
-        self.reactor = reactor
-        self.interface = interface
-        self.port = port
-        self.software = software
-        self.RTO = .5
-        self.Rc = 7
-        self.timeout = Rm * RTO
-
+class StunProtocolMixin(object):
+    def __init__(self):
         self._handlers = {
             # Binding handlers
             (stun.METHOD_BINDING, stun.CLASS_REQUEST):
@@ -36,6 +22,104 @@ class StunUdpProtocol(DatagramProtocol):
             (stun.METHOD_BINDING, stun.CLASS_RESPONSE_ERROR):
                 self._stun_binding_error,
             }
+
+    def _stun_received(self, msg, addr):
+        handler = self._handlers.get((msg.msg_method, msg.msg_class))
+        if handler:
+            logger.info("%s Received STUN", self)
+            logger.debug(msg.format())
+            handler(msg, addr)
+        else:
+            logger.info("%s Received unrecognized STUN", self)
+            logger.debug(msg.format())
+
+    def _stun_unhandled(self, msg, addr):
+        logger.warning("%s Unhandled message from %s:%d", self, *addr)
+        logger.debug(msg.format())
+
+    def _stun_binding_request(self, msg, addr):
+        self._stun_unhandled(msg, addr)
+
+    def _stun_binding_indication(self, msg, addr):
+        self._stun_unhandled(msg, addr)
+
+    def _stun_binding_success(self, msg, addr):
+        self._stun_unhandled(msg, addr)
+
+    def _stun_binding_error(self, msg, addr):
+        self._stun_unhandled(msg, addr)
+
+
+class StunTcpProtocol(Protocol, StunProtocolMixin):
+    def __init__(self, reactor, software):
+        StunProtocolMixin.__init__(self)
+        self.reactor = reactor
+        self.software = software
+        self.RTO = 0
+        self.Rc = 0
+        self._peer = None
+        self._data = b''
+
+    def dataReceived(self, data):
+        # Accumulate data
+        self._data = b''.join([self._data, data])
+        data_len = len(self._data)
+
+        # Extract as many valid messages as possible
+        while data_len >= 20:
+            msg_type = ord(self._data[0]) >> 6
+            if msg_type != stun.MSG_STUN:
+                logger.warning("Unknown message from %s:%d:",
+                        self._peer.host, self._peer.port)
+                logger.debug(self._data.encode('hex'))
+                # Discard everything
+                self._data = b''
+                break
+
+            msg_length = 20 + (ord(self._data[2]) << 8) + ord(self._data[3])
+            if data_len < msg_length:
+                break
+
+            msgdata, self._data = (
+                    self._data[:msg_length], self._data[msg_length:]
+                    )
+            data_len -= msg_length
+
+            try:
+                msg = Message.decode(msgdata)
+            except Exception:
+                logger.exception("Failed to decode STUN from %s:%d:",
+                        self._peer.host, self._peer.port)
+                logger.debug(msgdata.encode('hex'))
+                # Don't give up here: just try the next message
+            else:
+                if isinstance(msg, Message):
+                    self._stun_received(msg,
+                            (self._peer.host, self._peer.port))
+
+    def connectionMade(self):
+        self._peer = self.transport.getPeer()
+
+    def connectionLost(self, reason):
+        pass
+
+
+class StunUdpProtocol(DatagramProtocol, StunProtocolMixin):
+    def __init__(self, reactor, interface, port, software, RTO=3., Rc=7, Rm=16):
+        """
+        :param port: UDP port to bind to
+        :param RTO: Retransmission TimeOut (initial value)
+        :param Rc: Retransmission Count (maximum number of request to send)
+        :param Rm: Retransmission Multiplier (timeout = Rm * RTO)
+        """
+        StunProtocolMixin.__init__(self)
+        self.reactor = reactor
+        self.interface = interface
+        self.port = port
+        self.software = software
+        self.RTO = .5
+        self.Rc = 7
+        self.timeout = Rm * RTO
 
     def start(self):
         port = self.reactor.listenUDP(self.port, self, self.interface)
@@ -55,32 +139,6 @@ class StunUdpProtocol(DatagramProtocol):
         else:
             logger.warning("Unknown message in datagram from %s:%d:", *addr)
             logger.debug(datagram.encode('hex'))
-
-    def _stun_received(self, msg, addr):
-        handler = self._handlers.get((msg.msg_method, msg.msg_class))
-        if handler:
-            logger.info("%s Received STUN", self)
-            logger.debug(msg.format())
-            handler(msg, addr)
-        else:
-            logger.info("%s Received unrecognized STUN", self)
-            logger.debug(msg.format())
-
-    def _stun_unhandeled(self, msg, addr):
-        logger.warning("%s Unhandeled message from %s:%d", self, *addr)
-        logger.debug(msg.format())
-
-    def _stun_binding_request(self, msg, addr):
-        self._stun_unhandeled(msg, addr)
-
-    def _stun_binding_indication(self, msg, addr):
-        self._stun_unhandeled(msg, addr)
-
-    def _stun_binding_success(self, msg, addr):
-        self._stun_unhandeled(msg, addr)
-
-    def _stun_binding_error(self, msg, addr):
-        self._stun_unhandeled(msg, addr)
 
 
 class Message(bytearray):
