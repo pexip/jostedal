@@ -29,7 +29,7 @@ class StunClientMixin(object):
         transaction = StunTransaction(request, addr)
         self._transactions[transaction.transaction_id] = transaction
         transaction.addBoth(self._transaction_completed, transaction)
-        self.send(transaction, self.RTO, self.Rc)
+        self._send(transaction, self.RTO, self.Rc)
         return transaction
 
     def _transaction_completed(self, result, transaction):
@@ -80,7 +80,7 @@ class StunTcpClient(StunTcpProtocol, StunClientMixin, protocol.ClientFactory):
     def buildProtocol(self, _addr):
         return self
 
-    def send(self, transaction, _rto, _rc):
+    def _send(self, transaction, _rto, _rc):
         """Send and handle retransmission of STUN transactions"""
         if not transaction.called:
             logger.info("%s Sending Request", transaction)
@@ -92,7 +92,7 @@ class StunUdpClient(StunUdpProtocol, StunClientMixin):
         StunUdpProtocol.__init__(self, reactor, '', port, software)
         StunClientMixin.__init__(self)
 
-    def send(self, transaction, rto, rc):
+    def _send(self, transaction, rto, rc):
         """Send and handle retransmission of STUN transactions
         :param rto: Retransmission TimeOut
         :param rc: Retransmission count, maximum number of requests to send
@@ -105,7 +105,7 @@ class StunUdpClient(StunUdpProtocol, StunClientMixin):
             elif rc:
                 logger.info("%s Sending Request RTO=%d, Rc=%d", transaction, rto, rc)
                 self.transport.write(transaction.request, transaction.addr)
-                self.reactor.callLater(rto, self.send, transaction, rto*2, rc-1)
+                self.reactor.callLater(rto, self._send, transaction, rto*2, rc-1)
             else:
                 logger.warning("%s Time Out in %ds", transaction, self.timeout)
                 self.reactor.callLater(self.timeout, transaction.time_out)
