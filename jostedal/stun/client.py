@@ -4,6 +4,7 @@ from jostedal.stun.authentication import CredentialMechanism
 from jostedal import stun
 from jostedal.stun import attributes
 import logging
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,17 @@ class StunClientMixin(object):
         self._transactions[transaction.transaction_id] = transaction
         transaction.addBoth(self._transaction_completed, transaction)
         self._send(transaction, self.RTO, self.Rc)
+        return transaction
+
+    def send_data(self, data, addr=None):
+        """
+        Send a non-STUN message.
+        """
+        msg = Message(data, 0, 0, 0, os.urandom(12))
+        transaction = StunTransaction(msg, addr)
+        self._transactions[transaction.transaction_id] = transaction
+        transaction.addBoth(self._transaction_completed, transaction)
+        self._send(transaction, 0, 0)
         return transaction
 
     def _transaction_completed(self, result, transaction):

@@ -1,6 +1,6 @@
 import logging
 from twisted.internet.protocol import DatagramProtocol, Protocol
-from jostedal import stun
+from jostedal import stun, turn
 import struct
 import os
 import socket
@@ -32,6 +32,14 @@ class StunProtocolMixin(object):
         else:
             logger.info("%s Received unrecognized STUN", self)
             logger.debug(msg.format())
+
+    def _turn_channel_received(self, channel_number, data):
+        handler = self._handlers.get(None)
+        if handler:
+            logger.info("%s Received TURN ChannelData", self)
+            handler(channel_number, data)
+        else:
+            logger.info("%s Received unhandled TURN ChannelData", self)
 
     def _stun_unhandled(self, msg, addr):
         logger.warning("%s Unhandled message from %s:%d", self, *addr)
@@ -66,9 +74,9 @@ class StunTcpProtocol(Protocol, StunProtocolMixin):
         data_len = len(self._data)
 
         # Extract as many valid messages as possible
-        while data_len >= 20:
+        while data_len >= 4:
             msg_type = ord(self._data[0]) >> 6
-            if msg_type != stun.MSG_STUN:
+            if msg_type not in [stun.MSG_STUN, turn.MSG_CHANNEL]:
                 logger.warning("Unknown message from %s:%d:",
                         self._peer.host, self._peer.port)
                 logger.debug(self._data.encode('hex'))
@@ -76,7 +84,11 @@ class StunTcpProtocol(Protocol, StunProtocolMixin):
                 self._data = b''
                 break
 
-            msg_length = 20 + (ord(self._data[2]) << 8) + ord(self._data[3])
+            if msg_type == stun.MSG_STUN:
+                msg_length = 20 + (ord(self._data[2]) << 8) + ord(self._data[3])
+            elif msg_type == turn.MSG_CHANNEL:
+                msg_length = 4 + (ord(self._data[2]) << 8) + ord(self._data[3])
+
             if data_len < msg_length:
                 break
 
@@ -85,17 +97,22 @@ class StunTcpProtocol(Protocol, StunProtocolMixin):
                     )
             data_len -= msg_length
 
-            try:
-                msg = Message.decode(msgdata)
-            except Exception:
-                logger.exception("Failed to decode STUN from %s:%d:",
-                        self._peer.host, self._peer.port)
-                logger.debug(msgdata.encode('hex'))
-                # Don't give up here: just try the next message
-            else:
-                if isinstance(msg, Message):
-                    self._stun_received(msg,
-                            (self._peer.host, self._peer.port))
+            if msg_type == stun.MSG_STUN:
+                try:
+                    msg = Message.decode(msgdata)
+                except Exception:
+                    logger.exception("Failed to decode STUN from %s:%d:",
+                            self._peer.host, self._peer.port)
+                    logger.debug(msgdata.encode('hex'))
+                    # Don't give up here: just try the next message
+                else:
+                    if isinstance(msg, Message):
+                        self._stun_received(msg,
+                                (self._peer.host, self._peer.port))
+            elif msg_type == turn.MSG_CHANNEL:
+                self._turn_channel_received(
+                        (ord(msgdata[0] << 8) + ord(msgdata[1]), msgdata[4:]))
+
 
     def connectionMade(self):
         self._peer = self.transport.getPeer()
@@ -136,6 +153,11 @@ class StunUdpProtocol(DatagramProtocol, StunProtocolMixin):
             else:
                 if isinstance(msg, Message):
                     self._stun_received(msg, addr)
+        elif msg_type == turn.MSG_CHANNEL:
+            if len(datagram) >= 4:
+                 self._turn_channel_received(
+                        (ord(datagram[0] << 8) + ord(datagram[1]),
+                            datagram[4:]))
         else:
             logger.warning("Unknown message in datagram from %s:%d:", *addr)
             logger.debug(datagram.encode('hex'))

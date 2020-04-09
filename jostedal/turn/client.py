@@ -4,6 +4,7 @@ from jostedal.stun.agent import Message
 from jostedal.turn import attributes
 from jostedal.stun.authentication import LongTermCredentialMechanism
 import logging
+import struct
 
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,9 @@ class TurnClientMixin(object):
                 self._stun_channel_bind_success,
             (turn.METHOD_CHANNEL_BIND, stun.CLASS_RESPONSE_ERROR):
                 self._stun_channel_bind_error,
+            # ChannelData handlers
+            None:
+                self._stun_channel_data_indication,
             })
 
     def allocate(self, addr=None, transport=turn.TRANSPORT_UDP, time_to_expiry=None,
@@ -123,6 +127,15 @@ class TurnClientMixin(object):
                 attributes.XorPeerAddress.FAMILY_IPv4,
                 peer_address[1], peer_address[0])
         transaction = self.request(request, addr)
+        return transaction
+
+    def channel_data(self, channel_number, data, addr=None):
+        """
+        :see: http://tools.ietf.org/html/rfc5766#section-11.4
+        """
+        hdr = struct.pack('>HH', channel_number, len(data))
+        msg = b''.join([hdr, data])
+        transaction = self.send_data(msg, addr)
         return transaction
 
     def get_host_transport_address(self):
@@ -190,6 +203,10 @@ class TurnClientMixin(object):
             error_code = msg.get_attr(stun.ATTR_ERROR_CODE)
             logger.error("Channel bind failed: %s", error_code.reason)
             transaction.fail(TransactionError(error_code.reason))
+
+    def _stun_channel_data_indication(self, channel_number, data):
+        logger.info("%s Unhandled TURN ChannelData channel=%04x", self, channel_number)
+        logger.debug(data.encode('hex'))
 
 
 class TurnTcpClient(StunTcpClient, TurnClientMixin):
