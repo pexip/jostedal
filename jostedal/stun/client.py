@@ -87,7 +87,7 @@ class StunTcpClient(StunTcpProtocol, StunClientMixin, protocol.ClientFactory):
         """Send and handle retransmission of STUN transactions"""
         if not transaction.called:
             logger.info("%s Sending Request", transaction)
-            self.transport.write(transaction.request)
+            self.transport.write(bytes(transaction.request))
 
 
 class StunUdpClient(StunUdpProtocol, StunClientMixin):
