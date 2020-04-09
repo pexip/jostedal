@@ -1,5 +1,5 @@
-from twisted.internet import defer
-from jostedal.stun.agent import StunUdpProtocol, Message
+from twisted.internet import defer, protocol
+from jostedal.stun.agent import StunTcpProtocol, StunUdpProtocol, Message
 from jostedal.stun.authentication import CredentialMechanism
 from jostedal import stun
 from jostedal.stun import attributes
@@ -8,14 +8,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-class StunUdpClient(StunUdpProtocol):
-    def __init__(self, reactor, software, port=0):
-        StunUdpProtocol.__init__(self, reactor, '', port, software)
+class StunClientMixin(object):
+    def __init__(self):
         self._transactions = {}
         self.credential_mechanism = CredentialMechanism()
 
-    def bind(self, addr):
+    def bind(self, addr=None):
         """
         :see: http://tools.ietf.org/html/rfc5389#section-7.1
         """
@@ -23,7 +21,7 @@ class StunUdpClient(StunUdpProtocol):
         request.add_attr(attributes.Software, self.software)
         return self.request(request, addr)
 
-    def request(self, request, addr):
+    def request(self, request, addr=None):
         """Send a STUN request
         """
         self.credential_mechanism.update(request)
@@ -33,21 +31,6 @@ class StunUdpClient(StunUdpProtocol):
         transaction.addBoth(self._transaction_completed, transaction)
         self.send(transaction, self.RTO, self.Rc)
         return transaction
-
-    def send(self, transaction, rto, rc):
-        """Send and handle retransmission of STUN transactions
-        :param rto: Retransmission TimeOut
-        :param rc: Retransmission count, maximum number of requests to send
-        :see: http://tools.ietf.org/html/rfc5389#section-7.2.1
-        """
-        if not transaction.called:
-            if rc:
-                logger.info("%s Sending Request RTO=%d, Rc=%d", transaction, rto, rc)
-                self.transport.write(transaction.request, transaction.addr)
-                self.reactor.callLater(rto, self.send, transaction, rto*2, rc-1)
-            else:
-                logger.warning("%s Time Out in %ds", transaction, self.timeout)
-                self.reactor.callLater(self.timeout, transaction.time_out)
 
     def _transaction_completed(self, result, transaction):
         del self._transactions[transaction.transaction_id]
@@ -79,6 +62,53 @@ class StunUdpClient(StunUdpProtocol):
         # error code 400 -> 499; transaction failed (420, UNKNOWN ATTRIBUTES contain info)
         # error code 500 -> 599; MAY resend, but MUST limit number of retries
             transaction.fail(TransactionError(msg))
+
+
+class StunTcpClient(StunTcpProtocol, StunClientMixin, protocol.ClientFactory):
+    def __init__(self, reactor, software, host, port, local_port=0):
+        StunTcpProtocol.__init__(self, reactor, software)
+        StunClientMixin.__init__(self)
+        self.host = host
+        self.port = port
+        self.local_port = local_port
+
+    def start(self):
+        self.reactor.connectTCP(self.host, self.port, self,
+                timeout=39.5,
+                bindAddress=('', self.local_port))
+
+    def buildProtocol(self, _addr):
+        return self
+
+    def send(self, transaction, _rto, _rc):
+        """Send and handle retransmission of STUN transactions"""
+        if not transaction.called:
+            logger.info("%s Sending Request", transaction)
+            self.transport.write(transaction.request)
+
+
+class StunUdpClient(StunUdpProtocol, StunClientMixin):
+    def __init__(self, reactor, software, port=0):
+        StunUdpProtocol.__init__(self, reactor, '', port, software)
+        StunClientMixin.__init__(self)
+
+    def send(self, transaction, rto, rc):
+        """Send and handle retransmission of STUN transactions
+        :param rto: Retransmission TimeOut
+        :param rc: Retransmission count, maximum number of requests to send
+        :see: http://tools.ietf.org/html/rfc5389#section-7.2.1
+        """
+        if not transaction.called:
+            if not transaction.addr:
+                logger.warning("%s with no address", transaction)
+                transaction.fail(TransactionError("No target address"))
+            elif rc:
+                logger.info("%s Sending Request RTO=%d, Rc=%d", transaction, rto, rc)
+                self.transport.write(transaction.request, transaction.addr)
+                self.reactor.callLater(rto, self.send, transaction, rto*2, rc-1)
+            else:
+                logger.warning("%s Time Out in %ds", transaction, self.timeout)
+                self.reactor.callLater(self.timeout, transaction.time_out)
 
 
 class TransactionError(Exception):
