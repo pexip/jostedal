@@ -32,7 +32,8 @@ class TurnClientMixin(object):
 
     class Expired(): pass
 
-    def __init__(self):
+    def __init__(self, users):
+        self.users = users
         self.turn_server_domain_name = None
         self.allocation = None
 
@@ -69,13 +70,7 @@ class TurnClientMixin(object):
         if reservation_token:
             request.add_attr(turn.ATTR_RESERVATION_TOKEN, even_port)
         transaction = self.request(request, addr)
-        transaction.addErrback
-        def retry(failure):
-            nonce = failure.value.get_attr(stun.ATTR_NONCE)
-            realm = str(failure.value.get_attr(stun.ATTR_REALM))
-            self.credential_mechanism = LongTermCredentialMechanism(nonce, realm, 'username', 'password')
-            logger.debug("Retrying allocation with %s", self.credential_mechanism)
-            transaction.addCallback(lambda result: self.allocate(addr))
+        return transaction
 
     def refresh(self, time_to_expiry):
         """
@@ -104,15 +99,17 @@ class TurnClientMixin(object):
         transaction = self._transactions.get(msg.transaction_id)
         if transaction:
             error_code = msg.get_attr(stun.ATTR_ERROR_CODE)
-            if not isinstance(self.credential_mechanism, LongTermCredentialMechanism):
+            if (error_code.code == 401 and
+                    not isinstance(self.credential_mechanism, LongTermCredentialMechanism)):
                 nonce = msg.get_attr(stun.ATTR_NONCE)
                 realm = str(msg.get_attr(stun.ATTR_REALM))
-                self.credential_mechanism = LongTermCredentialMechanism(nonce, realm, 'username', 'password')
-                logger.debug("Allocation failed: %s", error_code)
-                transaction.addCallback(lambda result: self.allocate(addr))
+                self.credential_mechanism = LongTermCredentialMechanism(realm, self.users)
+                self.credential_mechanism.nonce = nonce
+                logger.debug("Allocation failed: %s", error_code.reason)
+                self.allocate(addr).chainDeferred(transaction)
             else:
-                logger.error("Allocation failed: %s", error_code)
-                transaction.fail(TransactionError(error_code))
+                logger.error("Allocation failed: %s", error_code.reason)
+                transaction.fail(TransactionError(error_code.reason))
 
     def _stun_refresh_success(self, msg, addr):
         self._stun_unhandled(msg, addr)
@@ -127,12 +124,12 @@ class TurnClientMixin(object):
 
 
 class TurnTcpClient(StunTcpClient, TurnClientMixin):
-    def __init__(self, reactor, software, host, port):
+    def __init__(self, reactor, software, host, port, users):
         StunTcpClient.__init__(self, reactor, software, host, port)
-        TurnClientMixin.__init__(self)
+        TurnClientMixin.__init__(self, users)
 
 
 class TurnUdpClient(StunUdpClient, TurnClientMixin):
-    def __init__(self, reactor, software):
+    def __init__(self, reactor, software, users):
         StunUdpClient.__init__(self, reactor, software)
-        TurnClientMixin.__init__(self)
+        TurnClientMixin.__init__(self, users)
