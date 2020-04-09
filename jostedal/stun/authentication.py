@@ -1,4 +1,5 @@
 from jostedal.utils import saslprep, ha1
+from jostedal import stun
 from jostedal.stun import attributes
 import os
 import logging
@@ -51,7 +52,11 @@ class LongTermCredentialMechanism(CredentialMechanism):
     def update(self, msg):
         msg.add_attr(attributes.Nonce, self.nonce)
         msg.add_attr(attributes.Realm, self.realm)
-        msg.add_attr(attributes.MessageIntegrity, self.hmac_keys.values()[0])
+        username, ha1 = self.hmac_keys.items()[0]
+        if msg.msg_class == stun.CLASS_REQUEST:
+            msg.add_attr(attributes.Username, username)
+        if msg.msg_class not in [stun.CLASS_INDICATION, stun.CLASS_RESPONSE_ERROR]:
+            msg.add_attr(attributes.MessageIntegrity, ha1)
 
     def __str__(self):
         return "realm={}".format(self.realm)
