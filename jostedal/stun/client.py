@@ -71,13 +71,16 @@ class StunTcpClient(StunTcpProtocol, StunClientMixin, protocol.ClientFactory):
         self.host = host
         self.port = port
         self.local_port = local_port
+        self._connected = defer.Deferred()
 
     def start(self):
         self.reactor.connectTCP(self.host, self.port, self,
                 timeout=39.5,
                 bindAddress=('', self.local_port))
+        return self._connected
 
     def buildProtocol(self, _addr):
+        self.reactor.callLater(0, self._connected.callback, True)
         return self
 
     def _send(self, transaction, _rto, _rc):
