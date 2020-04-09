@@ -48,6 +48,11 @@ class TurnClientMixin(object):
                 self._stun_refresh_success,
             (turn.METHOD_REFRESH, stun.CLASS_RESPONSE_ERROR):
                 self._stun_refresh_error,
+            # CreatePermission handlers
+            (turn.METHOD_CREATE_PERMISSION, stun.CLASS_RESPONSE_SUCCESS):
+                self._stun_create_permission_success,
+            (turn.METHOD_CREATE_PERMISSION, stun.CLASS_RESPONSE_ERROR):
+                self._stun_create_permission_error,
             # Data handlers
             (turn.METHOD_DATA, stun.CLASS_INDICATION):
                 self._stun_data_indication,
@@ -79,6 +84,17 @@ class TurnClientMixin(object):
         request = Message.encode(turn.METHOD_REFRESH, stun.CLASS_REQUEST)
         if time_to_expiry:
             request.add_attr(turn.ATTR_LIFETIME, time_to_expiry)
+
+    def create_permission(self, peer_address, addr=None):
+        """
+        :see: http://tools.ietf.org/html/rfc5766#section-9.1
+        """
+        request = Message.encode(turn.METHOD_CREATE_PERMISSION, stun.CLASS_REQUEST)
+        request.add_attr(attributes.XorPeerAddress,
+                attributes.XorPeerAddress.FAMILY_IPv4,
+                peer_address[1], peer_address[0])
+        transaction = self.request(request, addr)
+        return transaction
 
     def get_host_transport_address(self):
         pass
@@ -118,6 +134,18 @@ class TurnClientMixin(object):
         # If time_to_expiry == 0 and error 437 (Allocation Mismatch)
         # consider transaction a success
         self.errback(msg.format())
+
+    def _stun_create_permission_success(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            transaction.succeed(True)
+
+    def _stun_create_permission_error(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            error_code = msg.get_attr(stun.ATTR_ERROR_CODE)
+            logger.error("Create permission failed: %s", error_code.reason)
+            transaction.fail(TransactionError(error_code.reason))
 
     def _stun_data_indication(self, msg, addr):
         self._stun_unhandled(msg, addr)
