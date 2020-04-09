@@ -96,6 +96,15 @@ class TurnClientMixin(object):
         transaction = self.request(request, addr)
         return transaction
 
+    def send(self, peer_address, data, addr=None):
+        request = Message.encode(turn.METHOD_SEND, stun.CLASS_INDICATION)
+        request.add_attr(attributes.XorPeerAddress,
+                attributes.XorPeerAddress.FAMILY_IPv4,
+                peer_address[1], peer_address[0])
+        request.add_attr(attributes.Data, data)
+        transaction = self.request(request, addr)
+        return transaction
+
     def get_host_transport_address(self):
         pass
 

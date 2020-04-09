@@ -89,6 +89,8 @@ class StunTcpClient(StunTcpProtocol, StunClientMixin, protocol.ClientFactory):
             logger.info("%s Sending Request", transaction)
             logger.debug(transaction.request.format())
             self.transport.write(bytes(transaction.request))
+            if transaction.request.msg_class == stun.CLASS_INDICATION:
+                self.reactor.callLater(0, transaction.succeed, True)
 
 
 class StunUdpClient(StunUdpProtocol, StunClientMixin):
