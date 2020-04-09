@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class StunUdpClient(StunUdpProtocol):
-    def __init__(self, reactor, port=0):
-        StunUdpProtocol.__init__(self, reactor, port)
+    def __init__(self, reactor, software, port=0):
+        StunUdpProtocol.__init__(self, reactor, '', port, software)
         self._transactions = {}
         self.credential_mechanism = CredentialMechanism()
 
