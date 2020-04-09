@@ -56,6 +56,11 @@ class TurnClientMixin(object):
             # Data handlers
             (turn.METHOD_DATA, stun.CLASS_INDICATION):
                 self._stun_data_indication,
+            # ChannelBind handlers
+            (turn.METHOD_CHANNEL_BIND, stun.CLASS_RESPONSE_SUCCESS):
+                self._stun_channel_bind_success,
+            (turn.METHOD_CHANNEL_BIND, stun.CLASS_RESPONSE_ERROR):
+                self._stun_channel_bind_error,
             })
 
     def allocate(self, addr=None, transport=turn.TRANSPORT_UDP, time_to_expiry=None,
@@ -97,11 +102,26 @@ class TurnClientMixin(object):
         return transaction
 
     def send(self, peer_address, data, addr=None):
+        """
+        :see: http://tools.ietf.org/html/rfc5766#section-10.1
+        """
         request = Message.encode(turn.METHOD_SEND, stun.CLASS_INDICATION)
         request.add_attr(attributes.XorPeerAddress,
                 attributes.XorPeerAddress.FAMILY_IPv4,
                 peer_address[1], peer_address[0])
         request.add_attr(attributes.Data, data)
+        transaction = self.request(request, addr)
+        return transaction
+
+    def channel_bind(self, channel_number, peer_address, addr=None):
+        """
+        :see: http://tools.ietf.org/html/rfc5766#section-11.1
+        """
+        request = Message.encode(turn.METHOD_CHANNEL_BIND, stun.CLASS_REQUEST)
+        request.add_attr(attributes.ChannelNumber, channel_number)
+        request.add_attr(attributes.XorPeerAddress,
+                attributes.XorPeerAddress.FAMILY_IPv4,
+                peer_address[1], peer_address[0])
         transaction = self.request(request, addr)
         return transaction
 
@@ -158,6 +178,18 @@ class TurnClientMixin(object):
 
     def _stun_data_indication(self, msg, addr):
         self._stun_unhandled(msg, addr)
+
+    def _stun_channel_bind_success(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            transaction.succeed(True)
+
+    def _stun_channel_bind_error(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            error_code = msg.get_attr(stun.ATTR_ERROR_CODE)
+            logger.error("Channel bind failed: %s", error_code.reason)
+            transaction.fail(TransactionError(error_code.reason))
 
 
 class TurnTcpClient(StunTcpClient, TurnClientMixin):

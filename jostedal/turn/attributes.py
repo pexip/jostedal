@@ -8,6 +8,9 @@ class ChannelNumber(Attribute):
     """TURN STUN CHANNEL-NUMBER attribute
     :see: http://tools.ietf.org/html/rfc5766#section-14.1
     """
+    type = turn.ATTR_CHANNEL_NUMBER
+    _struct = struct.Struct('>H2x')
+
     def __init__(self, data, channel_number):
         self.channel_number = channel_number
 
@@ -15,7 +18,13 @@ class ChannelNumber(Attribute):
     def decode(cls, data, offset, length):
         channel_number = struct.unpack_from('>H2x', data, offset)
         return cls(buffer(data, offset, length), channel_number)
-    type = turn.ATTR_CHANNEL_NUMBER
+
+    @classmethod
+    def encode(cls, data, channel_number):
+        return cls(cls._struct.pack(channel_number), channel_number)
+
+    def __repr__(self):
+        return "CHANNEL-NUMBER(channel-number={})".format(self.channel_number)
 
 
 @attribute
