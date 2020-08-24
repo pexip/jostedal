@@ -10,14 +10,14 @@ logger = logging.getLogger(__name__)
 
 
 class TurnUdpClient(StunUdpClient):
-    class UnAllocated():
+    class UnAllocated:
         allocate = None
 
-    class Allocating():
+    class Allocating:
         _stun_allocate_success = None
         _stun_allocate_error = None
 
-    class Allocated():
+    class Allocated:
         refresh = None
         _stun_refresh_success = None
         _stun_refresh_error = None
@@ -30,31 +30,48 @@ class TurnUdpClient(StunUdpClient):
         _stun_channel_bind_success = None
         _stun_channel_bind_error = None
 
-    class Expired(): pass
+    class Expired:
+        pass
 
     def __init__(self, reactor):
         StunUdpClient.__init__(self, reactor)
         self.turn_server_domain_name = None
         self.allocation = None
 
-        self._handlers.update({
-            # Allocate handlers
-            (turn.METHOD_ALLOCATE, stun.CLASS_RESPONSE_SUCCESS):
-                self._stun_allocate_success,
-            (turn.METHOD_ALLOCATE, stun.CLASS_RESPONSE_ERROR):
-                self._stun_allocate_error,
-            # Refresh handlers
-            (turn.METHOD_REFRESH, stun.CLASS_RESPONSE_SUCCESS):
-                self._stun_refresh_success,
-            (turn.METHOD_REFRESH, stun.CLASS_RESPONSE_ERROR):
-                self._stun_refresh_error,
-            # Data handlers
-            (turn.METHOD_DATA, stun.CLASS_INDICATION):
-                self._stun_data_indication,
-            })
+        self._handlers.update(
+            {
+                # Allocate handlers
+                (
+                    turn.METHOD_ALLOCATE,
+                    stun.CLASS_RESPONSE_SUCCESS,
+                ): self._stun_allocate_success,
+                (
+                    turn.METHOD_ALLOCATE,
+                    stun.CLASS_RESPONSE_ERROR,
+                ): self._stun_allocate_error,
+                # Refresh handlers
+                (
+                    turn.METHOD_REFRESH,
+                    stun.CLASS_RESPONSE_SUCCESS,
+                ): self._stun_refresh_success,
+                (
+                    turn.METHOD_REFRESH,
+                    stun.CLASS_RESPONSE_ERROR,
+                ): self._stun_refresh_error,
+                # Data handlers
+                (turn.METHOD_DATA, stun.CLASS_INDICATION): self._stun_data_indication,
+            }
+        )
 
-    def allocate(self, addr, transport=turn.TRANSPORT_UDP, time_to_expiry=None,
-        dont_fragment=False, even_port=None, reservation_token=None):
+    def allocate(
+        self,
+        addr,
+        transport=turn.TRANSPORT_UDP,
+        time_to_expiry=None,
+        dont_fragment=False,
+        even_port=None,
+        reservation_token=None,
+    ):
         """
         :param even_port: None | 0 | 1 (1==reserve next highest port number)
         :see: http://tools.ietf.org/html/rfc5766#section-6.1
@@ -71,10 +88,13 @@ class TurnUdpClient(StunUdpClient):
             request.add_attr(turn.ATTR_RESERVATION_TOKEN, even_port)
         transaction = self.request(request, addr)
         transaction.addErrback
+
         def retry(failure):
             nonce = failure.value.get_attr(stun.ATTR_NONCE)
             realm = str(failure.value.get_attr(stun.ATTR_REALM))
-            self.credential_mechanism = LongTermCredentialMechanism(nonce, realm, 'username', 'password')
+            self.credential_mechanism = LongTermCredentialMechanism(
+                nonce, realm, "username", "password"
+            )
             logger.debug("Retrying allocation with %s", self.credential_mechanism)
             transaction.addCallback(lambda result: self.allocate(addr))
 
@@ -90,7 +110,7 @@ class TurnUdpClient(StunUdpClient):
         pass
 
     def get_server_transport_address(self):
-        pass #dns srv record of "turn" or "turns"
+        pass  # dns srv record of "turn" or "turns"
 
     def _stun_allocate_success(self, msg, addr):
         transaction = self._transactions.get(msg.transaction_id)
@@ -108,7 +128,9 @@ class TurnUdpClient(StunUdpClient):
             if not isinstance(self.credential_mechanism, LongTermCredentialMechanism):
                 nonce = msg.get_attr(stun.ATTR_NONCE)
                 realm = str(msg.get_attr(stun.ATTR_REALM))
-                self.credential_mechanism = LongTermCredentialMechanism(nonce, realm, 'username', 'password')
+                self.credential_mechanism = LongTermCredentialMechanism(
+                    nonce, realm, "username", "password"
+                )
                 logger.debug("Allocation failed: %s", error_code)
                 transaction.addCallback(lambda result: self.allocate(addr))
             else:

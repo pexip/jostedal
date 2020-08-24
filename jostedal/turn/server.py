@@ -10,29 +10,34 @@ class TurnUdpServer(StunUdpServer):
     max_lifetime = 3600
     default_lifetime = 600
 
-    def __init__(self, reactor, interface, port, software, credential_mechanism, overrides):
+    def __init__(
+        self, reactor, interface, port, software, credential_mechanism, overrides
+    ):
         StunUdpServer.__init__(self, reactor, interface, port, software, overrides)
         self._relays = {}
         self.credential_mechanism = credential_mechanism
         self.overrides = overrides
 
-        self._handlers.update({
-            # Allocate handlers
-            (turn.METHOD_ALLOCATE, stun.CLASS_REQUEST):
-                self._stun_allocate_request,
-            # Refresh handlers
-            (turn.METHOD_REFRESH, stun.CLASS_REQUEST):
-                self._stun_refresh_request,
-            # Create permission handlers
-            (turn.METHOD_CREATE_PERMISSION, stun.CLASS_REQUEST):
-                self._stun_create_permission_request,
-            # Send handlers
-            (turn.METHOD_SEND, stun.CLASS_INDICATION):
-                self._stun_send_indication,
-            # ChannelBind handler
-            (turn.METHOD_CHANNEL_BIND, stun.CLASS_REQUEST):
-                self._stun_channel_bind_request,
-            })
+        self._handlers.update(
+            {
+                # Allocate handlers
+                (turn.METHOD_ALLOCATE, stun.CLASS_REQUEST): self._stun_allocate_request,
+                # Refresh handlers
+                (turn.METHOD_REFRESH, stun.CLASS_REQUEST): self._stun_refresh_request,
+                # Create permission handlers
+                (
+                    turn.METHOD_CREATE_PERMISSION,
+                    stun.CLASS_REQUEST,
+                ): self._stun_create_permission_request,
+                # Send handlers
+                (turn.METHOD_SEND, stun.CLASS_INDICATION): self._stun_send_indication,
+                # ChannelBind handler
+                (
+                    turn.METHOD_CHANNEL_BIND,
+                    stun.CLASS_REQUEST,
+                ): self._stun_channel_bind_request,
+            }
+        )
 
     def _stun_allocate_request(self, msg, addr):
         """
@@ -79,7 +84,7 @@ class TurnUdpServer(StunUdpServer):
         even_port = msg.get_attr(turn.ATTR_EVEN_PORT)
         if reservation_token:
             if even_port:
-                pass # TODO: reject with 400
+                pass  # TODO: reject with 400
             relay_addr = self.get_reserved_transport_address(reservation_token)
             # TODO: check that token is in range and has not expired
             # and that corresponding relayed address is still available
@@ -101,7 +106,7 @@ class TurnUdpServer(StunUdpServer):
             response.add_attr(ReservationToken, token)
         response.add_attr(Lifetime, time_to_expiry)
         family = Address.aftof(self.transport.addressFamily)
-        host, port = self.overrides.get('mapped_address', addr)
+        host, port = self.overrides.get("mapped_address", addr)
         response.add_attr(XorMappedAddress, family, port, host)
 
         self.respond(response, addr)
@@ -123,7 +128,9 @@ class TurnUdpServer(StunUdpServer):
 
     def _time_to_expiry(self, lifetime):
         if lifetime:
-            time_to_expiry = max(self.default_lifetime, min(self.max_lifetime,lifetime.time_to_expiry))
+            time_to_expiry = max(
+                self.default_lifetime, min(self.max_lifetime, lifetime.time_to_expiry)
+            )
         else:
             time_to_expiry = self.default_lifetime
         return time_to_expiry
@@ -180,8 +187,10 @@ class TurnUdpServer(StunUdpServer):
         raise NotImplementedError("ChannelBind request")
 
     def __str__(self):
-        return ("interface={0.interface}, port={0.port}, "
-                "{0.credential_mechanism}".format(self))
+        return (
+            "interface={0.interface}, port={0.port}, "
+            "{0.credential_mechanism}".format(self)
+        )
 
     def __repr__(self):
         return "TurnUdpServer({})".format(self)

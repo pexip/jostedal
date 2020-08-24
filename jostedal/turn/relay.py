@@ -20,9 +20,8 @@ class Relay(DatagramProtocol):
         self.nonce = None
 
         self.time_to_expiry = 10 * 60
-        self.permissions = []#('ipaddr', 'lifetime'),]
-        self._channels = {} # channel to peer bindings
-
+        self.permissions = []  # ('ipaddr', 'lifetime'),]
+        self._channels = {}  # channel to peer bindings
 
     @classmethod
     def allocate(cls, server, client_addr, port=0):
@@ -45,7 +44,7 @@ class Relay(DatagramProtocol):
             self.transport.write(data, addr)
         else:
             logger.warning("No permissions for %s: Dropping Send request", host)
-            logger.debug(data.encode('hex'))
+            logger.debug(data.encode("hex"))
 
     def datagramReceived(self, datagram, addr):
         """
@@ -59,17 +58,16 @@ class Relay(DatagramProtocol):
                 # TODO: send channel message to client
                 raise NotImplementedError("Send channel message")
             else:
-                msg = Message.encode(turn.METHOD_DATA,
-                                     stun.CLASS_INDICATION)
+                msg = Message.encode(turn.METHOD_DATA, stun.CLASS_INDICATION)
                 family = Address.aftof(self.transport.addressFamily)
                 msg.add_attr(attributes.XorPeerAddress, family, port, host)
                 msg.add_attr(attributes.Data, datagram)
             self.server.transport.write(msg, self.client_addr)
         else:
             logger.warning("No permissions for %s: Dropping datagram", host)
-            logger.debug(datagram.encode('hex'))
-
+            logger.debug(datagram.encode("hex"))
 
     def __str__(self):
-        return ("Relay(relay-addr={0[2]}:{0[1]}, client-addr={1[0]}:{1[1]})"
-                .format(self.relay_addr, self.client_addr))
+        return "Relay(relay-addr={0[2]}:{0[1]}, client-addr={1[0]}:{1[1]})".format(
+            self.relay_addr, self.client_addr
+        )

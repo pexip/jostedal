@@ -44,7 +44,7 @@ class StunUdpClient(StunUdpProtocol):
             if rc:
                 logger.info("%s Sending Request RTO=%d, Rc=%d", transaction, rto, rc)
                 self.transport.write(transaction.request, transaction.addr)
-                self.reactor.callLater(rto, self.send, transaction, rto*2, rc-1)
+                self.reactor.callLater(rto, self.send, transaction, rto * 2, rc - 1)
             else:
                 logger.warning("%s Time Out in %ds", transaction, self.timeout)
                 self.reactor.callLater(self.timeout, transaction.time_out)
@@ -62,7 +62,9 @@ class StunUdpClient(StunUdpProtocol):
         """
         transaction = self._transactions.get(msg.transaction_id)
         if transaction:
-            address = msg.get_attr(stun.ATTR_XOR_MAPPED_ADDRESS, stun.ATTR_MAPPED_ADDRESS)
+            address = msg.get_attr(
+                stun.ATTR_XOR_MAPPED_ADDRESS, stun.ATTR_MAPPED_ADDRESS
+            )
             if address:
                 transaction.succeed(str(address))
             else:
@@ -74,10 +76,10 @@ class StunUdpClient(StunUdpProtocol):
         """
         transaction = self._transactions.get(msg.transaction_id)
         if transaction:
-        # 2. authentication processing (sec. 10)
-        # error code 300 -> 399; SHOULD fail unless ALTERNATE-SERVER (sec 11)
-        # error code 400 -> 499; transaction failed (420, UNKNOWN ATTRIBUTES contain info)
-        # error code 500 -> 599; MAY resend, but MUST limit number of retries
+            # 2. authentication processing (sec. 10)
+            # error code 300 -> 399; SHOULD fail unless ALTERNATE-SERVER (sec 11)
+            # error code 400 -> 499; transaction failed (420, UNKNOWN ATTRIBUTES contain info)
+            # error code 500 -> 599; MAY resend, but MUST limit number of retries
             transaction.fail(TransactionError(msg))
 
 

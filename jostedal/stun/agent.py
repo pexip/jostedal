@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class StunUdpProtocol(DatagramProtocol):
-    def __init__(self, reactor, interface, port, software, RTO=3., Rc=7, Rm=16):
+    def __init__(self, reactor, interface, port, software, RTO=3.0, Rc=7, Rm=16):
         """
         :param port: UDP port to bind to
         :param RTO: Retransmission TimeOut (initial value)
@@ -21,21 +21,20 @@ class StunUdpProtocol(DatagramProtocol):
         self.interface = interface
         self.port = port
         self.software = software
-        self.RTO = .5
+        self.RTO = 0.5
         self.Rc = 7
         self.timeout = Rm * RTO
 
         self._handlers = {
             # Binding handlers
-            (stun.METHOD_BINDING, stun.CLASS_REQUEST):
-                self._stun_binding_request,
-            (stun.METHOD_BINDING, stun.CLASS_INDICATION):
-                self._stun_binding_indication,
-            (stun.METHOD_BINDING, stun.CLASS_RESPONSE_SUCCESS):
-                self._stun_binding_success,
-            (stun.METHOD_BINDING, stun.CLASS_RESPONSE_ERROR):
-                self._stun_binding_error,
-            }
+            (stun.METHOD_BINDING, stun.CLASS_REQUEST): self._stun_binding_request,
+            (stun.METHOD_BINDING, stun.CLASS_INDICATION): self._stun_binding_indication,
+            (
+                stun.METHOD_BINDING,
+                stun.CLASS_RESPONSE_SUCCESS,
+            ): self._stun_binding_success,
+            (stun.METHOD_BINDING, stun.CLASS_RESPONSE_ERROR): self._stun_binding_error,
+        }
 
     def start(self):
         port = self.reactor.listenUDP(self.port, self, self.interface)
@@ -48,13 +47,13 @@ class StunUdpProtocol(DatagramProtocol):
                 msg = Message.decode(datagram)
             except Exception:
                 logger.exception("Failed to decode STUN from %s:%d:", *addr)
-                logger.debug(datagram.encode('hex'))
+                logger.debug(datagram.encode("hex"))
             else:
                 if isinstance(msg, Message):
                     self._stun_received(msg, addr)
         else:
             logger.warning("Unknown message in datagram from %s:%d:", *addr)
-            logger.debug(datagram.encode('hex'))
+            logger.debug(datagram.encode("hex"))
 
     def _stun_received(self, msg, addr):
         handler = self._handlers.get((msg.msg_method, msg.msg_class))
@@ -88,7 +87,7 @@ class Message(bytearray):
     :see: http://tools.ietf.org/html/rfc5389#section-6
     """
 
-    _struct = struct.Struct('>2HL12s')
+    _struct = struct.Struct(">2HL12s")
     _ATTR_TYPE_CLS = {}
 
     _padding = os.urandom
@@ -102,7 +101,14 @@ class Message(bytearray):
         self._attributes = []
 
     @classmethod
-    def encode(cls, msg_method, msg_class, magic_cookie=stun.MAGIC_COOKIE, transaction_id=None, data=''):
+    def encode(
+        cls,
+        msg_method,
+        msg_class,
+        magic_cookie=stun.MAGIC_COOKIE,
+        transaction_id=None,
+        data="",
+    ):
         transaction_id = transaction_id or os.urandom(12)
         msg_type = msg_method | msg_class << 4
         header = cls._struct.pack(msg_type, len(data), magic_cookie, transaction_id)
@@ -116,7 +122,7 @@ class Message(bytearray):
         self.extend(attr)
         self.extend(self._padding(attr.padding))
         self._attributes.append(attr)
-        #update length
+        # update length
         self.length = len(self) - self._struct.size
         return attr
 
@@ -130,18 +136,23 @@ class Message(bytearray):
         """
         :see: http://tools.ietf.org/html/rfc5389#section-7.3.1
         """
-        assert ord(data[0]) >> 6 == stun.MSG_STUN, \
-            "Stun message MUST start with 0b00"
-        msg_type, msg_length, magic_cookie, transaction_id = cls._struct.unpack_from(data)
-#         assert magic_cookie == MAGIC_COOKIE, \
-#             "Incorrect magic cookie ({:#x})".format(magic_cookie)
-        assert msg_length % 4 == 0, \
-            "Message not aliged to 4 byte boundary"
-        msg_type &= 0x3fff               # 00111111 11111111
-        msg_method = msg_type & 0xfeef   # ..111110 11101111
-        msg_class = msg_type >> 4 & 0x11 # ..000001 00010000
-        msg = cls(buffer(data, 0, cls._struct.size + msg_length),
-                      msg_method, msg_class, magic_cookie, transaction_id)
+        assert ord(data[0]) >> 6 == stun.MSG_STUN, "Stun message MUST start with 0b00"
+        msg_type, msg_length, magic_cookie, transaction_id = cls._struct.unpack_from(
+            data
+        )
+        #         assert magic_cookie == MAGIC_COOKIE, \
+        #             "Incorrect magic cookie ({:#x})".format(magic_cookie)
+        assert msg_length % 4 == 0, "Message not aliged to 4 byte boundary"
+        msg_type &= 0x3FFF  # 00111111 11111111
+        msg_method = msg_type & 0xFEEF  # ..111110 11101111
+        msg_class = msg_type >> 4 & 0x11  # ..000001 00010000
+        msg = cls(
+            buffer(data, 0, cls._struct.size + msg_length),
+            msg_method,
+            msg_class,
+            magic_cookie,
+            transaction_id,
+        )
         offset = cls._struct.size
         while offset < cls._struct.size + msg_length:
             attr_type, attr_length = Attribute.struct.unpack_from(data, offset)
@@ -156,7 +167,7 @@ class Message(bytearray):
     def get_attr_cls(cls, attr_type):
         attr_cls = cls._ATTR_TYPE_CLS.get(attr_type)
         if not attr_cls:
-            attr_cls = type('Unknown', (Unknown,), {'type': attr_type})
+            attr_cls = type("Unknown", (Unknown,), {"type": attr_type})
             cls.add_attr_cls(attr_cls)
         return attr_cls
 
@@ -164,18 +175,20 @@ class Message(bytearray):
     def add_attr_cls(cls, attr_cls):
         """Decorator to add a Stun Attribute as an recognized attribute type
         """
-        assert not cls._ATTR_TYPE_CLS.get(attr_cls.type, False), \
-            "Duplicate definition for {:#06x}".format(attr_cls.type)
+        assert not cls._ATTR_TYPE_CLS.get(
+            attr_cls.type, False
+        ), "Duplicate definition for {:#06x}".format(attr_cls.type)
         cls._ATTR_TYPE_CLS[attr_cls.type] = attr_cls
         return attr_cls
 
     def unknown_comp_required_attrs(self, ignored=()):
         """Returns a list of unknown comprehension-required attributes
         """
-        return tuple(attr.type for attr in self._attributes
-                     if attr.type not in ignored
-                     and attr.required
-                     and isinstance(attr, Unknown))
+        return tuple(
+            attr.type
+            for attr in self._attributes
+            if attr.type not in ignored and attr.required and isinstance(attr, Unknown)
+        )
 
     @property
     def length(self):
@@ -183,7 +196,7 @@ class Message(bytearray):
 
     @length.setter
     def length(self, value):
-        struct.pack_into('>H', self, 2, value)
+        struct.pack_into(">H", self, 2, value)
 
     @classmethod
     def attr_name(cls, attr_type):
@@ -193,28 +206,38 @@ class Message(bytearray):
         return attr_cls.__name__ if attr_cls else "{:#06x}".format(attr_type)
 
     def create_response(self, msg_class):
-        return self.encode(self.msg_method, msg_class, self.magic_cookie,
-                           self.transaction_id)
+        return self.encode(
+            self.msg_method, msg_class, self.magic_cookie, self.transaction_id
+        )
 
     def __repr__(self):
-        return ("{}(method={:#05x}, class={:#04x}, length={}, "
-                "magic_cookie={:#010x}, transaction_id={}, attributes={})".format(
-                    type(self).__name__, self.msg_method, self.msg_class,
-                    len(self) - self._struct.size,
-                    self.magic_cookie, self.transaction_id.encode('hex'),
-                    self._attributes))
+        return (
+            "{}(method={:#05x}, class={:#04x}, length={}, "
+            "magic_cookie={:#010x}, transaction_id={}, attributes={})".format(
+                type(self).__name__,
+                self.msg_method,
+                self.msg_class,
+                len(self) - self._struct.size,
+                self.magic_cookie,
+                self.transaction_id.encode("hex"),
+                self._attributes,
+            )
+        )
 
     def format(self):
-        string = '\n'.join([
-            "{0.__class__.__name__}",
-            "    method:         {0.msg_method:#05x}",
-            "    class:          {0.msg_class:#04x}",
-            "    length:         {0.length}",
-            "    magic-cookie:   {0.magic_cookie:#010x}",
-            "    transaction-id: {1}",
-            "    attributes:", ""
-            ]).format(self, self.transaction_id.encode('hex'))
-        string += '\n'.join(["    \t" + repr(attr) for attr in self._attributes])
+        string = "\n".join(
+            [
+                "{0.__class__.__name__}",
+                "    method:         {0.msg_method:#05x}",
+                "    class:          {0.msg_class:#04x}",
+                "    length:         {0.length}",
+                "    magic-cookie:   {0.magic_cookie:#010x}",
+                "    transaction-id: {1}",
+                "    attributes:",
+                "",
+            ]
+        ).format(self, self.transaction_id.encode("hex"))
+        string += "\n".join(["    \t" + repr(attr) for attr in self._attributes])
         return string
 
 
@@ -222,7 +245,8 @@ class Attribute(str):
     """STUN message attribute structure
     :see: http://tools.ietf.org/html/rfc5389#section-15
     """
-    struct = struct.Struct('>2H')
+
+    struct = struct.Struct(">2H")
 
     def __new__(cls, data, *args, **kwargs):
         return str.__new__(cls, data)
@@ -245,8 +269,9 @@ class Attribute(str):
     def required(self):
         """Establish wether a attribute is in the comprehension-required range
         """
-        #Comprehension-required attributes are in range 0x0000-0x7fff
+        # Comprehension-required attributes are in range 0x0000-0x7fff
         return self.type < 0x8000
+
 
 #     def __repr__(self):
 #         return "{}(length={}, value={})".format(type(self).__name__, len(self),
@@ -256,24 +281,25 @@ class Attribute(str):
 class Unknown(Attribute):
     """Base class for dynamically generated unknown STUN attributes
     """
+
     def __repr__(self):
         return "UNKNOWN(type={:#06x}, length={}, value={})".format(
-            self.type, len(self), str.encode(self, 'hex'))
+            self.type, len(self), str.encode(self, "hex")
+        )
 
 
 class Address(Attribute):
     """Base class for all the addess STUN attributes
     :cvar _xored: Wether or not the port and address field are xored
     """
-    struct = struct.Struct('>xBH')
+
+    struct = struct.Struct(">xBH")
 
     FAMILY_IPv4 = 0x01
     FAMILY_IPv6 = 0x02
     # Convert to/from STUN FAMILY and AF_INET
-    ftoaf = {FAMILY_IPv4: socket.AF_INET,
-             FAMILY_IPv6: socket.AF_INET6}.get
-    aftof = {socket.AF_INET: FAMILY_IPv4,
-             socket.AF_INET6: FAMILY_IPv6}.get
+    ftoaf = {FAMILY_IPv4: socket.AF_INET, FAMILY_IPv6: socket.AF_INET6}.get
+    aftof = {socket.AF_INET: FAMILY_IPv4, socket.AF_INET6: FAMILY_IPv6}.get
 
     _xored = False
 
@@ -289,7 +315,7 @@ class Address(Attribute):
         if cls._xored:
             # xport and xaddress are xored with the concatination of
             # the magic cookie and the transaction id (data[4:20])
-            magic = bytearray(*struct.unpack_from('>16s', data, 4))
+            magic = bytearray(*struct.unpack_from(">16s", data, 4))
             port = port ^ magic[0] << 8 ^ magic[1]
             packed_ip = buffer(bytearray(ord(a) ^ b for a, b in zip(packed_ip, magic)))
         address = socket.inet_ntop(Address.ftoaf(family), packed_ip)
@@ -301,7 +327,7 @@ class Address(Attribute):
         xport = port
         packed_ip = socket.inet_pton(Address.ftoaf(family), address)
         if cls._xored:
-            magic = bytearray(*struct.unpack_from('>16s', msg, 4))
+            magic = bytearray(*struct.unpack_from(">16s", msg, 4))
             xport = port ^ magic[0] << 8 ^ magic[1]
             packed_ip = bytearray(ord(a) ^ b for a, b in zip(packed_ip, magic))
         data = cls.struct.pack(family, xport) + packed_ip
@@ -309,7 +335,8 @@ class Address(Attribute):
 
     def __repr__(self):
         return "{}(family={:#04x}, port={}, address={!r})".format(
-            type(self).__name__, self.family, self.port, self.address)
+            type(self).__name__, self.family, self.port, self.address
+        )
 
 
 # Decorator shortcut for adding known attribute classes

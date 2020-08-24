@@ -16,6 +16,7 @@ class ShortTermCredentialMechanism(CredentialMechanism):
     """
     :see: http://tools.ietf.org/html/rfc5389#section-10.1
     """
+
     def __init__(self, username, password):
         self.username = username
         self.hmac_key = saslprep(password)
@@ -29,14 +30,15 @@ class LongTermCredentialMechanism(CredentialMechanism):
     """
     :see: http://tools.ietf.org/html/rfc5389#section-10.2
     """
+
     def __init__(self, realm, users):
         self.nonce = self.generate_nonce()
         self.realm = realm
         self.hmac_keys = {}
         for username, credentials in users.iteritems():
-            key = credentials.get('key')
+            key = credentials.get("key")
             if not key:
-                password = credentials.get('password')
+                password = credentials.get("password")
                 if not password:
                     logger.warning("Invalid credentials for %s", username)
                     continue
@@ -46,7 +48,7 @@ class LongTermCredentialMechanism(CredentialMechanism):
         self.hmac_keys[username] = ha1(username, self.realm, password)
 
     def generate_nonce(self, length=16):
-        return os.urandom(length//2).encode('hex')
+        return os.urandom(length // 2).encode("hex")
 
     def update(self, msg):
         msg.add_attr(attributes.Nonce, self.nonce)
