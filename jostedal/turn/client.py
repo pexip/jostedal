@@ -164,7 +164,8 @@ class TurnClientMixin(object):
                 self.credential_mechanism = LongTermCredentialMechanism(realm, self.users)
                 self.credential_mechanism.nonce = nonce
                 logger.debug("Allocation failed: %s", error_code.reason)
-                self.allocate(addr).chainDeferred(transaction)
+                transport = transaction.request.get_attr(turn.ATTR_REQUESTED_TRANSPORT).protocol
+                self.allocate(addr, transport=transport).chainDeferred(transaction)
             else:
                 logger.error("Allocation failed: %s", error_code.reason)
                 transaction.fail(TransactionError(error_code.reason))
@@ -213,6 +214,78 @@ class TurnTcpClient(StunTcpClient, TurnClientMixin):
     def __init__(self, reactor, software, host, port, users):
         StunTcpClient.__init__(self, reactor, software, host, port)
         TurnClientMixin.__init__(self, users)
+
+        self._handlers.update({
+            # Connect handlers
+            (turn.METHOD_CONNECT, stun.CLASS_RESPONSE_SUCCESS):
+                self._turn_connect_success,
+            (turn.METHOD_CONNECT, stun.CLASS_RESPONSE_ERROR):
+                self._turn_connect_error,
+            # ConnectionBind handlers
+            (turn.METHOD_CONNECTION_BIND, stun.CLASS_RESPONSE_SUCCESS):
+                self._turn_connection_bind_success,
+            (turn.METHOD_CONNECTION_BIND, stun.CLASS_RESPONSE_ERROR):
+                self._turn_connection_bind_error,
+            # ConnectionAttempt handlers
+            (turn.METHOD_CONNECTION_ATTEMPT, stun.CLASS_INDICATION):
+                self._turn_connection_attempt_indication,
+            })
+
+    def connect(self, peer_address, addr=None):
+        """
+        :see: http://tools.ietf.org/html/rfc6062#section-4.3
+        """
+        request = Message.encode(turn.METHOD_CONNECT, stun.CLASS_REQUEST)
+        request.add_attr(attributes.XorPeerAddress,
+                attributes.XorPeerAddress.FAMILY_IPv4,
+                peer_address[1], peer_address[0])
+        transaction = self.request(request, addr)
+        return transaction
+
+    def connection_bind(self, connection_id, addr=None):
+        """
+        :see: http://tools.ietf.org/html/rfc6062#section-4.3
+        """
+        request = Message.encode(turn.METHOD_CONNECTION_BIND, stun.CLASS_REQUEST)
+        request.add_attr(turn.ATTR_CONNECTION_ID, connection_id)
+        transaction = self.request(request, addr)
+        return transaction
+
+    def _turn_connect_success(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            connection_id = msg.get_attr(turn.ATTR_CONNECTION_ID)
+            transaction.succeed(connection_id)
+
+    def _turn_connect_error(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            error_code = msg.get_attr(stun.ATTR_ERROR_CODE)
+            logger.error("Create permission failed: %s", error_code.reason)
+            transaction.fail(TransactionError(error_code.reason))
+
+    def _turn_connection_bind_success(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            transaction.succeed(True)
+
+    def _turn_connection_bind_error(self, msg, addr):
+        transaction = self._transactions.get(msg.transaction_id)
+        if transaction:
+            error_code = msg.get_attr(stun.ATTR_ERROR_CODE)
+            logger.error("Connection bind failed: %s", error_code.reason)
+            transaction.fail(TransactionError(error_code.reason))
+
+    def _turn_connection_attempt_indication(self, msg, addr):
+        """
+        :see: http://tools.ietf.org/html/rfc6062#section-4.4
+        """
+        connection_id = msg.get_attr(turn.ATTR_CONNECTION_ID)
+        peer_addr = msg.get_attr(turn.ATTR_XOR_PEER_ADDRESS)
+        logger.info(
+            "%s Unhandled TURN ConnectionAttempt connection-id=%d peer-address=%s",
+            self, connection_id, peer_addr)
+        self._stun_unhandled(msg, addr)
 
 
 class TurnUdpClient(StunUdpClient, TurnClientMixin):

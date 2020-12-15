@@ -131,3 +131,26 @@ class ReservationToken(Attribute):
     :see: http://tools.ietf.org/html/rfc5766#section-14.9
     """
     type = turn.ATTR_RESERVATION_TOKEN
+
+@attribute
+class ConnectionId(Attribute):
+    """TURN CONNECTION_ID attribute
+    :see: http://tools.ietf.org/html/rfc6062#section-6.2
+    """
+    type = turn.ATTR_CONNECTION_ID
+    _struct = struct.Struct('>L')
+
+    def __init__(self, data, connection_id):
+        self.connection_id = connection_id
+
+    @classmethod
+    def decode(cls, data, offset, length):
+        connection_id, = cls._struct.unpack_from(data, offset)
+        return cls(buffer(data, offset, length), connection_id)
+
+    @classmethod
+    def encode(cls, msg, connection_id):
+        return cls(cls._struct.pack(connection_id), connection_id)
+
+    def __repr__(self):
+        return "CONNECTION_ID(connection-id={})".format(self.connection_id)

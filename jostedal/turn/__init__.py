@@ -7,6 +7,9 @@ METHOD_SEND =               0x006 # only indication semantics defined
 METHOD_DATA =               0x007 # only indication semantics defined
 METHOD_CREATE_PERMISSION =  0x008 # only request/response semantics defined
 METHOD_CHANNEL_BIND =       0x009 # only request/response semantics defined
+METHOD_CONNECT =            0x00A # only request/response semantics defined
+METHOD_CONNECTION_BIND =    0x00B # only request/response semantics defined
+METHOD_CONNECTION_ATTEMPT = 0x00C # only indication semantics defined
 
 
 ATTR_CHANNEL_NUMBER =      0x000C
@@ -18,8 +21,10 @@ ATTR_EVEN_PORT =           0x0018
 ATTR_REQUESTED_TRANSPORT = 0x0019
 ATTR_DONT_FRAGMENT =       0x001A
 ATTR_RESERVATION_TOKEN =   0x0022
+ATTR_CONNECTION_ID =       0x002A
 
 
+TRANSPORT_TCP = 0x06
 TRANSPORT_UDP = 0x11
 
 
@@ -28,5 +33,7 @@ ERR_FORBIDDEN =                         4, 3, "Forbidden"
 ERR_ALLOCATION_MISMATCH =               4,37, "Allocation Mismatch"
 ERR_WRONG_CREDENTIALS =                 4,41, "Wrong Credentials"
 ERR_UNSUPPORTED_TRANSPORT_PROTOCOL =    4,42, "Unsupported Transport Protocol"
+ERR_CONNECTION_ALREADY_EXISTS =         4,46, "Connection Already Exists"
+ERR_CONNECTION_TIMEOUT_OR_FAILURE =     4,47, "Connection Timeout Or Failure"
 ERR_ALLOCATION_QUOTA_REACHED =          4,86, "Allocation Quota Reached"
 ERR_INSUFFICIENT_CAPACITY =             5, 8, "Insufficient Capacity"
