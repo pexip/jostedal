@@ -41,7 +41,7 @@ class StunUdpProtocol(DatagramProtocol):
         return port.port
 
     def datagramReceived(self, datagram, addr):
-        msg_type = ord(datagram[0]) >> 6
+        msg_type = datagram[0] >> 6
         if msg_type == stun.MSG_STUN:
             try:
                 msg = Message.decode(datagram)
@@ -136,7 +136,7 @@ class Message(bytearray):
         """
         :see: http://tools.ietf.org/html/rfc5389#section-7.3.1
         """
-        assert ord(data[0]) >> 6 == stun.MSG_STUN, "Stun message MUST start with 0b00"
+        assert data[0] >> 6 == stun.MSG_STUN, "Stun message MUST start with 0b00"
         msg_type, msg_length, magic_cookie, transaction_id = cls._struct.unpack_from(
             data
         )
@@ -147,7 +147,7 @@ class Message(bytearray):
         msg_method = msg_type & 0xFEEF  # ..111110 11101111
         msg_class = msg_type >> 4 & 0x11  # ..000001 00010000
         msg = cls(
-            buffer(data, 0, cls._struct.size + msg_length),
+            memoryview(data)[0 : cls._struct.size + msg_length],
             msg_method,
             msg_class,
             magic_cookie,
@@ -173,8 +173,7 @@ class Message(bytearray):
 
     @classmethod
     def add_attr_cls(cls, attr_cls):
-        """Decorator to add a Stun Attribute as an recognized attribute type
-        """
+        """Decorator to add a Stun Attribute as an recognized attribute type"""
         assert not cls._ATTR_TYPE_CLS.get(
             attr_cls.type, False
         ), "Duplicate definition for {:#06x}".format(attr_cls.type)
@@ -182,8 +181,7 @@ class Message(bytearray):
         return attr_cls
 
     def unknown_comp_required_attrs(self, ignored=()):
-        """Returns a list of unknown comprehension-required attributes
-        """
+        """Returns a list of unknown comprehension-required attributes"""
         return tuple(
             attr.type
             for attr in self._attributes
@@ -200,8 +198,7 @@ class Message(bytearray):
 
     @classmethod
     def attr_name(cls, attr_type):
-        """Get the readable name of an attribute type, if known
-        """
+        """Get the readable name of an attribute type, if known"""
         attr_cls = cls._ATTR_TYPE_CLS.get(attr_type)
         return attr_cls.__name__ if attr_cls else "{:#06x}".format(attr_type)
 
@@ -236,12 +233,12 @@ class Message(bytearray):
                 "    attributes:",
                 "",
             ]
-        ).format(self, self.transaction_id.encode("hex"))
+        ).format(self, self.transaction_id.hex())
         string += "\n".join(["    \t" + repr(attr) for attr in self._attributes])
         return string
 
 
-class Attribute(str):
+class Attribute(bytes):
     """STUN message attribute structure
     :see: http://tools.ietf.org/html/rfc5389#section-15
     """
@@ -249,11 +246,11 @@ class Attribute(str):
     struct = struct.Struct(">2H")
 
     def __new__(cls, data, *args, **kwargs):
-        return str.__new__(cls, data)
+        return bytes.__new__(cls, data)
 
     @classmethod
     def decode(cls, data, offset, length):
-        return cls(buffer(data, offset, length))
+        return cls(memoryview(data)[offset : offset + length])
 
     @classmethod
     def encode(cls, msg, data):
@@ -261,14 +258,12 @@ class Attribute(str):
 
     @property
     def padding(self):
-        """Calculate number of padding bytes required to align to 4 byte boundary
-        """
+        """Calculate number of padding bytes required to align to 4 byte boundary"""
         return (4 - (len(self) % 4)) % 4
 
     @property
     def required(self):
-        """Establish wether a attribute is in the comprehension-required range
-        """
+        """Establish wether a attribute is in the comprehension-required range"""
         # Comprehension-required attributes are in range 0x0000-0x7fff
         return self.type < 0x8000
 
@@ -279,12 +274,11 @@ class Attribute(str):
 
 
 class Unknown(Attribute):
-    """Base class for dynamically generated unknown STUN attributes
-    """
+    """Base class for dynamically generated unknown STUN attributes"""
 
     def __repr__(self):
         return "UNKNOWN(type={:#06x}, length={}, value={})".format(
-            self.type, len(self), str.encode(self, "hex")
+            self.type, len(self), self.hex()
         )
 
 
@@ -311,15 +305,15 @@ class Address(Attribute):
     @classmethod
     def decode(cls, data, offset, length):
         family, port = cls.struct.unpack_from(data, offset)
-        packed_ip = buffer(data, offset + cls.struct.size, length - cls.struct.size)
+        packed_ip = memoryview(data)[offset + cls.struct.size : offset + length]
         if cls._xored:
             # xport and xaddress are xored with the concatination of
             # the magic cookie and the transaction id (data[4:20])
             magic = bytearray(*struct.unpack_from(">16s", data, 4))
             port = port ^ magic[0] << 8 ^ magic[1]
-            packed_ip = buffer(bytearray(ord(a) ^ b for a, b in zip(packed_ip, magic)))
+            packed_ip = memoryview(bytearray(a ^ b for a, b in zip(packed_ip, magic)))
         address = socket.inet_ntop(Address.ftoaf(family), packed_ip)
-        value = buffer(data, offset, length)
+        value = memoryview(data)[offset : offset + length]
         return cls(value, family, port, address)
 
     @classmethod
@@ -329,7 +323,7 @@ class Address(Attribute):
         if cls._xored:
             magic = bytearray(*struct.unpack_from(">16s", msg, 4))
             xport = port ^ magic[0] << 8 ^ magic[1]
-            packed_ip = bytearray(ord(a) ^ b for a, b in zip(packed_ip, magic))
+            packed_ip = bytearray(a ^ b for a, b in zip(packed_ip, magic))
         data = cls.struct.pack(family, xport) + packed_ip
         return cls(data, family, port, address)
 
