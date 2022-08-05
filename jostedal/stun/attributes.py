@@ -75,7 +75,7 @@ class ErrorCode(Attribute):
     def decode(cls, data, offset, length):
         err_class, err_number = cls._struct.unpack_from(data, offset)
         err_class &= 0b111
-        value = memoryview(data)[offset:offset+length]
+        value = memoryview(data)[offset : offset + length]
         reason = memoryview(value)[cls._struct.size :]
         return cls(value, err_class, err_number, reason)
 
