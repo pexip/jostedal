@@ -35,7 +35,7 @@ class LongTermCredentialMechanism(CredentialMechanism):
         self.nonce = self.generate_nonce()
         self.realm = realm
         self.hmac_keys = {}
-        for username, credentials in users.iteritems():
+        for username, credentials in users.items():
             key = credentials.get("key")
             if not key:
                 password = credentials.get("password")
@@ -48,12 +48,12 @@ class LongTermCredentialMechanism(CredentialMechanism):
         self.hmac_keys[username] = ha1(username, self.realm, password)
 
     def generate_nonce(self, length=16):
-        return os.urandom(length // 2).encode("hex")
+        return os.urandom(length // 2).hex()
 
     def update(self, msg):
-        msg.add_attr(attributes.Nonce, self.nonce)
-        msg.add_attr(attributes.Realm, self.realm)
-        msg.add_attr(attributes.MessageIntegrity, self.hmac_keys.values()[0])
+        msg.add_attr(attributes.Nonce, self.nonce.encode())
+        msg.add_attr(attributes.Realm, self.realm.encode())
+        msg.add_attr(attributes.MessageIntegrity, list(self.hmac_keys.values())[0])
 
     def __str__(self):
         return "realm={}".format(self.realm)
