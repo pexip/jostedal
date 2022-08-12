@@ -24,8 +24,7 @@ class StunUdpClient(StunUdpProtocol):
         return self.request(request, addr)
 
     def request(self, request, addr):
-        """Send a STUN request
-        """
+        """Send a STUN request"""
         self.credential_mechanism.update(request)
         request.add_attr(attributes.Fingerprint)
         transaction = StunTransaction(request, addr)

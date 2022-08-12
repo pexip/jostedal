@@ -22,7 +22,7 @@ class MessageTest(unittest.TestCase):
     def test_decode(self):
         error_code = self.msg.get_attr(stun.ATTR_ERROR_CODE)
         self.assertEqual(error_code.code, 401)
-        self.assertEqual(error_code.reason, u"Unauthorised")
+        self.assertEqual(error_code.reason, "Unauthorised")
 
         nonce = self.msg.get_attr(stun.ATTR_NONCE)
         self.assertEqual(nonce, "60327c17145a7788")
@@ -56,7 +56,7 @@ class MessageTest(unittest.TestCase):
         msg.add_attr(
             attributes.XorMappedAddress, Address.FAMILY_IPv4, 1337, "192.168.2.255"
         )
-        msg.add_attr(attributes.Software, u"\u8774\u8776 h\xfadi\xe9 'butterfly'")
+        msg.add_attr(attributes.Software, "\u8774\u8776 h\xfadi\xe9 'butterfly'")
         msg.add_attr(
             attributes.AlternateServer, Address.FAMILY_IPv4, 8008, "192.168.2.128"
         )
