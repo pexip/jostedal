@@ -37,7 +37,7 @@ class MessageTest(unittest.TestCase):
         self.assertEqual(fingerprint, "5a4c0c70".decode("hex"))
 
     def test_encode(self):
-        msg = Message.encode(
+        msg = Message.from_str(
             stun.METHOD_BINDING, stun.CLASS_REQUEST, transaction_id="fixedtransid"
         )
         # Override padding generation to make the message data deterministic

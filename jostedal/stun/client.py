@@ -19,7 +19,7 @@ class StunUdpClient(StunUdpProtocol):
         """
         :see: http://tools.ietf.org/html/rfc5389#section-7.1
         """
-        request = Message.encode(stun.METHOD_BINDING, stun.CLASS_REQUEST)
+        request = Message.from_str(stun.METHOD_BINDING, stun.CLASS_REQUEST)
         request.add_attr(attributes.Software, self.software)
         return self.request(request, addr)
 

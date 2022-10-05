@@ -58,7 +58,7 @@ class Relay(DatagramProtocol):
                 # TODO: send channel message to client
                 raise NotImplementedError("Send channel message")
             else:
-                msg = Message.encode(turn.METHOD_DATA, stun.CLASS_INDICATION)
+                msg = Message.from_str(turn.METHOD_DATA, stun.CLASS_INDICATION)
                 family = Address.aftof(self.transport.addressFamily)
                 msg.add_attr(attributes.XorPeerAddress, family, port, host)
                 msg.add_attr(attributes.Data, datagram)

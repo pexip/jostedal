@@ -76,7 +76,7 @@ class TurnUdpClient(StunUdpClient):
         :param even_port: None | 0 | 1 (1==reserve next highest port number)
         :see: http://tools.ietf.org/html/rfc5766#section-6.1
         """
-        request = Message.encode(turn.METHOD_ALLOCATE, stun.CLASS_REQUEST)
+        request = Message.from_str(turn.METHOD_ALLOCATE, stun.CLASS_REQUEST)
         request.add_attr(attributes.RequestedTransport, transport)
         if time_to_expiry:
             request.add_attr(turn.ATTR_LIFETIME, time_to_expiry)
@@ -102,7 +102,7 @@ class TurnUdpClient(StunUdpClient):
         """
         :see: http://tools.ietf.org/html/rfc5766#section-6
         """
-        request = Message.encode(turn.METHOD_REFRESH, stun.CLASS_REQUEST)
+        request = Message.from_str(turn.METHOD_REFRESH, stun.CLASS_REQUEST)
         if time_to_expiry:
             request.add_attr(turn.ATTR_LIFETIME, time_to_expiry)
 

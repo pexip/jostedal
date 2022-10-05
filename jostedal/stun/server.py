@@ -24,7 +24,7 @@ class StunUdpServer(StunUdpProtocol):
         if msg.msg_class == stun.CLASS_REQUEST:
             unknown_attributes = msg.unknown_comp_required_attrs()
             if unknown_attributes:
-                response = Message.encode(
+                response = Message.from_str(
                     stun.METHOD_BINDING,
                     stun.CLASS_RESPONSE_ERROR,
                     transaction_id=msg.transaction_id,
@@ -32,7 +32,7 @@ class StunUdpServer(StunUdpProtocol):
                 response.add_attr(attributes.ErrorCode, *stun.ERR_UNKNOWN_ATTRIBUTE)
                 response.add_attr(attributes.UnknownAttributes, unknown_attributes)
             else:
-                response = Message.encode(
+                response = Message.from_str(
                     stun.METHOD_BINDING,
                     stun.CLASS_RESPONSE_SUCCESS,
                     transaction_id=msg.transaction_id,
