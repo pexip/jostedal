@@ -216,7 +216,7 @@ class Message(bytearray):
                 self.msg_class,
                 len(self) - self._struct.size,
                 self.magic_cookie,
-                self.transaction_id.encode("hex"),
+                self.transaction_id.hex(),
                 self._attributes,
             )
         )

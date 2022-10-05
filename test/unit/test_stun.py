@@ -1,4 +1,5 @@
 import unittest
+import codecs
 from jostedal import stun
 from jostedal.stun.agent import Message, Address, Unknown
 from jostedal.stun import attributes
@@ -7,7 +8,7 @@ from jostedal.utils import ha1
 
 class MessageTest(unittest.TestCase):
     def setUp(self):
-        msg_data = (
+        msg_data = codecs.decode((
             "011300602112a442fedcb2d51f23946d"
             "9cc9754e0009001000000401556e6175"
             "74686f72697365640015001036303332"
@@ -16,7 +17,7 @@ class MessageTest(unittest.TestCase):
             "4369747269782d312e382e372e302027"
             "426c61636b20446f77270004"
             "802800045a4c0c70"  # Fingerprint
-        ).decode("hex")
+        ), "hex")
         self.msg = Message.decode(msg_data)
 
     def test_decode(self):
@@ -41,9 +42,9 @@ class MessageTest(unittest.TestCase):
             stun.METHOD_BINDING, stun.CLASS_REQUEST, transaction_id="fixedtransid"
         )
         # Override padding generation to make the message data deterministic
-        msg._padding = "\x00".__mul__  # Pad with zero bytes
+        msg._padding = b"\x00".__mul__  # Pad with zero bytes
 
-        msg.add_attr(type("Foo", (Unknown,), {"type": 0x6666}), "data")
+        msg.add_attr(type("Foo", (Unknown,), {"type": 0x6666}), b"data")
         msg.add_attr(
             attributes.MappedAddress, Address.FAMILY_IPv4, 1337, "192.168.2.255"
         )
@@ -51,8 +52,8 @@ class MessageTest(unittest.TestCase):
         msg.add_attr(attributes.MessageIntegrity, ha1("username", "realm", "password"))
         msg.add_attr(attributes.ErrorCode, *stun.ERR_SERVER_ERROR)
         msg.add_attr(attributes.UnknownAttributes, [0x1337, 0xB00B, 0xBEEF])
-        msg.add_attr(attributes.Realm, "pexip.com")
-        msg.add_attr(attributes.Nonce, "36303332376331373134356137373838".decode("hex"))
+        msg.add_attr(attributes.Realm, b"pexip.com")
+        msg.add_attr(attributes.Nonce, codecs.decode("36303332376331373134356137373838", "hex"))
         msg.add_attr(
             attributes.XorMappedAddress, Address.FAMILY_IPv4, 1337, "192.168.2.255"
         )
@@ -62,7 +63,7 @@ class MessageTest(unittest.TestCase):
         )
         msg.add_attr(attributes.Fingerprint)
 
-        msg_data = (
+        msg_data = codecs.decode((
             "000100bc2112a4426669786564747261"
             "6e736964666600046461746100010008"
             "00010539c0a802ff000600076a6f686e"
@@ -76,9 +77,9 @@ class MessageTest(unittest.TestCase):
             "e89db4e89db62068c3ba6469c3a92027"
             "627574746572666c7927000080230008"
             "00011f48c0a8028080280004e43217b7"
-        ).decode("hex")
+        ), "hex")
 
-        self.assertEqual(str(msg), msg_data)
+        self.assertEqual(Message.decode(msg), msg_data)
 
 
 if __name__ == "__main__":
