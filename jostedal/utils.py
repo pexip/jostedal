@@ -23,7 +23,6 @@ def secret_key(username, realm, password):
     README.turnserver in the coturn source code for algorithm details.
     """
     # Using sha1 because it's required by the TURN server API
-    print(type(password))
     hmac = HMAC(password.encode(), hashes.SHA1(), backend)  # nosec
     hmac.update(username.encode())
     password = base64.b64encode(hmac.finalize()).decode("utf-8")
