@@ -8,16 +8,19 @@ from jostedal.utils import ha1
 
 class MessageTest(unittest.TestCase):
     def setUp(self):
-        msg_data = codecs.decode((
-            "011300602112a442fedcb2d51f23946d"
-            "9cc9754e0009001000000401556e6175"
-            "74686f72697365640015001036303332"
-            "3763313731343561373738380014000a"
-            "7765627274632e6f72678e4f8022001a"
-            "4369747269782d312e382e372e302027"
-            "426c61636b20446f77270004"
-            "802800045a4c0c70"  # Fingerprint
-        ), "hex")
+        msg_data = codecs.decode(
+            (
+                "011300602112a442fedcb2d51f23946d"
+                "9cc9754e0009001000000401556e6175"
+                "74686f72697365640015001036303332"
+                "3763313731343561373738380014000a"
+                "7765627274632e6f72678e4f8022001a"
+                "4369747269782d312e382e372e302027"
+                "426c61636b20446f77270004"
+                "802800045a4c0c70"  # Fingerprint
+            ),
+            "hex",
+        )
         self.msg = Message.decode(msg_data)
 
     def test_decode(self):
@@ -53,7 +56,9 @@ class MessageTest(unittest.TestCase):
         msg.add_attr(attributes.ErrorCode, *stun.ERR_SERVER_ERROR)
         msg.add_attr(attributes.UnknownAttributes, [0x1337, 0xB00B, 0xBEEF])
         msg.add_attr(attributes.Realm, b"pexip.com")
-        msg.add_attr(attributes.Nonce, codecs.decode("36303332376331373134356137373838", "hex"))
+        msg.add_attr(
+            attributes.Nonce, codecs.decode("36303332376331373134356137373838", "hex")
+        )
         msg.add_attr(
             attributes.XorMappedAddress, Address.FAMILY_IPv4, 1337, "192.168.2.255"
         )
@@ -63,21 +68,24 @@ class MessageTest(unittest.TestCase):
         )
         msg.add_attr(attributes.Fingerprint)
 
-        msg_data = codecs.decode((
-            "000100bc2112a4426669786564747261"
-            "6e736964666600046461746100010008"
-            "00010539c0a802ff000600076a6f686e"
-            "646f6500000800144ad36bd8d0c242f6"
-            "a2b98ccbcfe0f21432261fb400090010"
-            "00000500536572766572204572726f72"
-            "000a00061337b00bbeef000000140009"
-            "70657869702e636f6d00000000150010"
-            "36303332376331373134356137373838"
-            "002000080001242be1baa6bd8022001a"
-            "e89db4e89db62068c3ba6469c3a92027"
-            "627574746572666c7927000080230008"
-            "00011f48c0a8028080280004e43217b7"
-        ), "hex")
+        msg_data = codecs.decode(
+            (
+                "000100bc2112a4426669786564747261"
+                "6e736964666600046461746100010008"
+                "00010539c0a802ff000600076a6f686e"
+                "646f6500000800144ad36bd8d0c242f6"
+                "a2b98ccbcfe0f21432261fb400090010"
+                "00000500536572766572204572726f72"
+                "000a00061337b00bbeef000000140009"
+                "70657869702e636f6d00000000150010"
+                "36303332376331373134356137373838"
+                "002000080001242be1baa6bd8022001a"
+                "e89db4e89db62068c3ba6469c3a92027"
+                "627574746572666c7927000080230008"
+                "00011f48c0a8028080280004e43217b7"
+            ),
+            "hex",
+        )
 
         self.assertEqual(Message.decode(msg), msg_data)
 
