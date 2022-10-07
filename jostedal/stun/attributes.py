@@ -25,7 +25,7 @@ class Username(Attribute):
     type = stun.ATTR_USERNAME
 
     @classmethod
-    def encode(cls, msg, username):
+    def from_str(cls, msg, username):
         return cls(username.encode("utf8"))
 
     def __repr__(self, *args, **kwargs):
@@ -42,7 +42,7 @@ class MessageIntegrity(Attribute):
     _struct = struct.Struct("20s")
 
     @classmethod
-    def encode(cls, msg, key):
+    def from_str(cls, msg, key):
         """
         :param key: H(A1) for long-term, SASLprep(password) for short-term auth
         """
@@ -72,7 +72,7 @@ class ErrorCode(Attribute):
         self.reason = str(reason)
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         err_class, err_number = cls._struct.unpack_from(data, offset)
         err_class &= 0b111
         value = memoryview(data)[offset : offset + length]
@@ -80,7 +80,7 @@ class ErrorCode(Attribute):
         return cls(value, err_class, err_number, reason)
 
     @classmethod
-    def encode(cls, msg, err_class, err_number, reason):
+    def from_str(cls, msg, err_class, err_number, reason):
         value = cls._struct.pack(err_class, err_number)
         reason = reason.encode("utf8")
         return cls(value + reason, err_class, err_number, reason)
@@ -101,12 +101,12 @@ class UnknownAttributes(Attribute):
         self.types = types
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         types = struct.unpack_from(">{}H".format(length // 2), data, offset)
         return cls(memoryview(data)[offset : offset + length], types)
 
     @classmethod
-    def encode(cls, msg, types):
+    def from_str(cls, msg, types):
         num = len(types)
         return cls(struct.pack(">{}H".format(num), *types), types)
 
@@ -125,7 +125,7 @@ class Realm(Attribute):
     type = stun.ATTR_REALM
 
     @classmethod
-    def encode(cls, msg, realm):
+    def from_str(cls, msg, realm):
         return cls(realm)
 
     def __repr__(self):
@@ -164,7 +164,7 @@ class Software(Attribute):
     type = stun.ATTR_SOFTWARE
 
     @classmethod
-    def encode(cls, msg, software):
+    def from_str(cls, msg, software):
         return cls(software.encode("utf8"))
 
     def __repr__(self):
@@ -191,7 +191,7 @@ class Fingerprint(Attribute):
     _MAGIC = 0x5354554E
 
     @classmethod
-    def encode(cls, msg):
+    def from_str(cls, msg):
         # Checksum covers the 'length' value, so it needs to be updated first
         msg.length += cls._struct.size + Attribute.struct.size
 
@@ -199,7 +199,7 @@ class Fingerprint(Attribute):
         return cls(cls._struct.pack(fingerprint))
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         (fingerprint,) = cls._struct.unpack_from(data, offset)
         return cls(memoryview(data)[offset : offset + length], fingerprint)
 

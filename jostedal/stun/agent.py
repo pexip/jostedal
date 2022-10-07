@@ -44,7 +44,7 @@ class StunUdpProtocol(DatagramProtocol):
         msg_type = datagram[0] >> 6
         if msg_type == stun.MSG_STUN:
             try:
-                msg = Message.decode(datagram)
+                msg = Message.from_buffer(datagram)
             except Exception:
                 logger.exception("Failed to decode STUN from %s:%d:", *addr)
                 logger.debug(datagram.encode("hex"))
@@ -101,7 +101,7 @@ class Message(bytearray):
         self._attributes = []
 
     @classmethod
-    def encode(
+    def from_str(
         cls,
         msg_method,
         msg_class,
@@ -117,7 +117,7 @@ class Message(bytearray):
         return message
 
     def add_attr(self, attr_cls, *args, **kwargs):
-        attr = attr_cls.encode(self, *args, **kwargs)
+        attr = attr_cls.from_str(self, *args, **kwargs)
         self.extend(Attribute.struct.pack(attr.type, len(attr)))
         self.extend(attr)
         self.extend(self._padding(attr.padding))
@@ -132,7 +132,7 @@ class Message(bytearray):
                 return attr
 
     @classmethod
-    def decode(cls, data):
+    def from_buffer(cls, data):
         """
         :see: http://tools.ietf.org/html/rfc5389#section-7.3.1
         """
@@ -157,7 +157,7 @@ class Message(bytearray):
         while offset < cls._struct.size + msg_length:
             attr_type, attr_length = Attribute.struct.unpack_from(data, offset)
             offset += Attribute.struct.size
-            attr = cls.get_attr_cls(attr_type).decode(data, offset, attr_length)
+            attr = cls.get_attr_cls(attr_type).from_buffer(data, offset, attr_length)
             msg._attributes.append(attr)
             offset += len(attr)
             offset += attr.padding
@@ -203,7 +203,7 @@ class Message(bytearray):
         return attr_cls.__name__ if attr_cls else "{:#06x}".format(attr_type)
 
     def create_response(self, msg_class):
-        return self.encode(
+        return self.from_str(
             self.msg_method, msg_class, self.magic_cookie, self.transaction_id
         )
 
@@ -216,7 +216,7 @@ class Message(bytearray):
                 self.msg_class,
                 len(self) - self._struct.size,
                 self.magic_cookie,
-                self.transaction_id.encode("hex"),
+                self.transaction_id.hex(),
                 self._attributes,
             )
         )
@@ -249,11 +249,11 @@ class Attribute(bytes):
         return bytes.__new__(cls, data)
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         return cls(memoryview(data)[offset : offset + length])
 
     @classmethod
-    def encode(cls, msg, data):
+    def from_str(cls, msg, data):
         return cls(data)
 
     @property
@@ -303,7 +303,7 @@ class Address(Attribute):
         self.address = address
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         family, port = cls.struct.unpack_from(data, offset)
         packed_ip = memoryview(data)[offset + cls.struct.size : offset + length]
         if cls._xored:
@@ -317,7 +317,7 @@ class Address(Attribute):
         return cls(value, family, port, address)
 
     @classmethod
-    def encode(cls, msg, family, port, address):
+    def from_str(cls, msg, family, port, address):
         xport = port
         packed_ip = socket.inet_pton(Address.ftoaf(family), address)
         if cls._xored:

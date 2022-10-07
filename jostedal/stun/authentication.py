@@ -1,7 +1,9 @@
-from jostedal.utils import saslprep, ha1
+from jostedal.utils import saslprep, ha1, secret_key
 from jostedal.stun import attributes
+
 import os
 import logging
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ class LongTermCredentialMechanism(CredentialMechanism):
         self.nonce = self.generate_nonce()
         self.realm = realm
         self.hmac_keys = {}
+        self.credential_type = "namepsw"
         for username, credentials in users.items():
             key = credentials.get("key")
             if not key:
@@ -42,10 +45,37 @@ class LongTermCredentialMechanism(CredentialMechanism):
                 if not password:
                     logger.warning("Invalid credentials for %s", username)
                     continue
-            self.hmac_keys[username] = ha1(username, self.realm, password)
+
+                self.hmac_keys[username] = ha1(username, self.realm, password)
+            else:
+                self.credential_type = "shared_secret"
+                self.key = key
 
     def add_user(self, username, password):
         self.hmac_keys[username] = ha1(username, self.realm, password)
+
+    def add_key_user(self, username):
+
+        if self.credential_type != "shared_secret":
+            return
+
+        username = username.decode("utf-8")
+
+        passw = secret_key(username, self.realm, self.key)
+        self.hmac_keys[username] = passw
+
+        try:
+            expiry, _uuid = username.split(":")
+            expiry = int(expiry)
+        except ValueError:
+            logger.warning("Invalid credentials for %s", username)
+            return
+
+        if expiry < datetime.now().timestamp():
+            logger.warning("User credentials expired for %s", username)
+            return
+
+        self.hmac_keys[username] = passw
 
     def generate_nonce(self, length=16):
         return os.urandom(length // 2).hex()

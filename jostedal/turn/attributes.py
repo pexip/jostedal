@@ -13,7 +13,7 @@ class ChannelNumber(Attribute):
         self.channel_number = channel_number
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         channel_number = struct.unpack_from(">H2x", data, offset)
         return cls(memoryview(data)[offset : offset + length], channel_number)
 
@@ -33,12 +33,12 @@ class Lifetime(Attribute):
         self.time_to_expiry = time_to_expiry
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         (lifetime,) = cls._struct.unpack_from(data, offset)
         return cls(memoryview(data)[offset : offset + length], lifetime)
 
     @classmethod
-    def encode(cls, msg, time_to_expiry):
+    def from_str(cls, msg, time_to_expiry):
         return cls(cls._struct.pack(time_to_expiry), time_to_expiry)
 
     def __repr__(self):
@@ -87,7 +87,7 @@ class EvenPort(Attribute):
     RESERVE = 0b10000000
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         return struct.unpack_from(">B", data, offset)[0] & 0b10000000
 
 
@@ -104,11 +104,11 @@ class RequestedTransport(Attribute):
         self.protocol = protocol
 
     @classmethod
-    def encode(cls, msg, protocol):
+    def from_str(cls, msg, protocol):
         return cls(cls._struct.pack(protocol), protocol)
 
     @classmethod
-    def decode(cls, data, offset, length):
+    def from_buffer(cls, data, offset, length):
         (protocol,) = cls._struct.unpack_from(data, offset)
         return cls(memoryview(data)[offset : offset + length], protocol)
 
