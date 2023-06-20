@@ -55,7 +55,6 @@ class LongTermCredentialMechanism(CredentialMechanism):
         self.hmac_keys[username] = ha1(username, self.realm, password)
 
     def add_key_user(self, username):
-
         if self.credential_type != "shared_secret":
             return
 
