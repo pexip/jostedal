@@ -47,13 +47,13 @@ class StunUdpProtocol(DatagramProtocol):
                 msg = Message.from_buffer(datagram)
             except Exception:
                 logger.exception("Failed to decode STUN from %s:%d:", *addr)
-                logger.debug(datagram.encode("hex"))
+                logger.debug(datagram.hex())
             else:
                 if isinstance(msg, Message):
                     self._stun_received(msg, addr)
         else:
             logger.warning("Unknown message in datagram from %s:%d:", *addr)
-            logger.debug(datagram.encode("hex"))
+            logger.debug(datagram.hex())
 
     def _stun_received(self, msg, addr):
         handler = self._handlers.get((msg.msg_method, msg.msg_class))
@@ -270,7 +270,7 @@ class Attribute(bytes):
 
 #     def __repr__(self):
 #         return "{}(length={}, value={})".format(type(self).__name__, len(self),
-#                                                 str.encode(self, 'hex'))
+#                                                 self.hex())
 
 
 class Unknown(Attribute):

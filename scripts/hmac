@@ -13,4 +13,4 @@ try:
 except:
     exit(__doc__.format(os.path.basename(__file__)))
 else:
-    print ha1(username, realm, password).encode('hex')
+    print ha1(username, realm, password).hex()
