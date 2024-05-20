@@ -1,7 +1,11 @@
 from jostedal.stun.server import StunUdpServer
 from jostedal import turn, stun
 from jostedal.stun.attributes import ErrorCode, XorMappedAddress
-from jostedal.turn.attributes import XorRelayedAddress, ReservationToken, Lifetime
+from jostedal.turn.attributes import (
+    XorRelayedAddress,
+    ReservationToken,
+    Lifetime,
+)
 from jostedal.stun.agent import Address
 from jostedal.turn.relay import Relay
 
@@ -11,7 +15,13 @@ class TurnUdpServer(StunUdpServer):
     default_lifetime = 600
 
     def __init__(
-        self, reactor, interface, port, software, credential_mechanism, overrides
+        self,
+        reactor,
+        interface,
+        port,
+        software,
+        credential_mechanism,
+        overrides,
     ):
         StunUdpServer.__init__(self, reactor, interface, port, software, overrides)
         self._relays = {}
@@ -21,16 +31,25 @@ class TurnUdpServer(StunUdpServer):
         self._handlers.update(
             {
                 # Allocate handlers
-                (turn.METHOD_ALLOCATE, stun.CLASS_REQUEST): self._stun_allocate_request,
+                (
+                    turn.METHOD_ALLOCATE,
+                    stun.CLASS_REQUEST,
+                ): self._stun_allocate_request,
                 # Refresh handlers
-                (turn.METHOD_REFRESH, stun.CLASS_REQUEST): self._stun_refresh_request,
+                (
+                    turn.METHOD_REFRESH,
+                    stun.CLASS_REQUEST,
+                ): self._stun_refresh_request,
                 # Create permission handlers
                 (
                     turn.METHOD_CREATE_PERMISSION,
                     stun.CLASS_REQUEST,
                 ): self._stun_create_permission_request,
                 # Send handlers
-                (turn.METHOD_SEND, stun.CLASS_INDICATION): self._stun_send_indication,
+                (
+                    turn.METHOD_SEND,
+                    stun.CLASS_INDICATION,
+                ): self._stun_send_indication,
                 # ChannelBind handler
                 (
                     turn.METHOD_CHANNEL_BIND,
@@ -131,7 +150,8 @@ class TurnUdpServer(StunUdpServer):
     def _time_to_expiry(self, lifetime):
         if lifetime:
             time_to_expiry = max(
-                self.default_lifetime, min(self.max_lifetime, lifetime.time_to_expiry)
+                self.default_lifetime,
+                min(self.max_lifetime, lifetime.time_to_expiry),
             )
         else:
             time_to_expiry = self.default_lifetime

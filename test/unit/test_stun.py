@@ -42,7 +42,9 @@ class MessageTest(unittest.TestCase):
 
     def test_encode(self):
         msg = Message.from_str(
-            stun.METHOD_BINDING, stun.CLASS_REQUEST, transaction_id="fixedtransid"
+            stun.METHOD_BINDING,
+            stun.CLASS_REQUEST,
+            transaction_id="fixedtransid",
         )
         # Override padding generation to make the message data deterministic
         msg._padding = b"\x00".__mul__  # Pad with zero bytes
@@ -57,14 +59,21 @@ class MessageTest(unittest.TestCase):
         msg.add_attr(attributes.UnknownAttributes, [0x1337, 0xB00B, 0xBEEF])
         msg.add_attr(attributes.Realm, b"pexip.com")
         msg.add_attr(
-            attributes.Nonce, codecs.decode("36303332376331373134356137373838", "hex")
+            attributes.Nonce,
+            codecs.decode("36303332376331373134356137373838", "hex"),
         )
         msg.add_attr(
-            attributes.XorMappedAddress, Address.FAMILY_IPv4, 1337, "192.168.2.255"
+            attributes.XorMappedAddress,
+            Address.FAMILY_IPv4,
+            1337,
+            "192.168.2.255",
         )
         msg.add_attr(attributes.Software, "\u8774\u8776 h\xfadi\xe9 'butterfly'")
         msg.add_attr(
-            attributes.AlternateServer, Address.FAMILY_IPv4, 8008, "192.168.2.128"
+            attributes.AlternateServer,
+            Address.FAMILY_IPv4,
+            8008,
+            "192.168.2.128",
         )
         msg.add_attr(attributes.Fingerprint)
 

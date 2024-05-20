@@ -27,13 +27,22 @@ class StunUdpProtocol(DatagramProtocol):
 
         self._handlers = {
             # Binding handlers
-            (stun.METHOD_BINDING, stun.CLASS_REQUEST): self._stun_binding_request,
-            (stun.METHOD_BINDING, stun.CLASS_INDICATION): self._stun_binding_indication,
+            (
+                stun.METHOD_BINDING,
+                stun.CLASS_REQUEST,
+            ): self._stun_binding_request,
+            (
+                stun.METHOD_BINDING,
+                stun.CLASS_INDICATION,
+            ): self._stun_binding_indication,
             (
                 stun.METHOD_BINDING,
                 stun.CLASS_RESPONSE_SUCCESS,
             ): self._stun_binding_success,
-            (stun.METHOD_BINDING, stun.CLASS_RESPONSE_ERROR): self._stun_binding_error,
+            (
+                stun.METHOD_BINDING,
+                stun.CLASS_RESPONSE_ERROR,
+            ): self._stun_binding_error,
         }
 
     def start(self):

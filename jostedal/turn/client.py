@@ -59,7 +59,10 @@ class TurnUdpClient(StunUdpClient):
                     stun.CLASS_RESPONSE_ERROR,
                 ): self._stun_refresh_error,
                 # Data handlers
-                (turn.METHOD_DATA, stun.CLASS_INDICATION): self._stun_data_indication,
+                (
+                    turn.METHOD_DATA,
+                    stun.CLASS_INDICATION,
+                ): self._stun_data_indication,
             }
         )
 
