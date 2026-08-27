@@ -210,8 +210,9 @@ class TurnUdpServer(StunUdpServer):
 
     def __str__(self):
         return (
-            "interface={0.interface}, port={0.port}, "
-            "{0.credential_mechanism}".format(self)
+            "interface={0.interface}, port={0.port}, {0.credential_mechanism}".format(
+                self
+            )
         )
 
     def __repr__(self):
